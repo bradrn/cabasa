@@ -1,0 +1,18 @@
+.stack-work/
+*~
+
+# LaTeX
+
+*.aux
+*.log
+*.pdf
+*.toc
+*.out
+*.synctex.gz
+
+# LaTeX minted
+_minted-*/
+
+# AUCTeX
+
+auto/

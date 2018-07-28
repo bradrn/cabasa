@@ -1,0 +1,5 @@
+state Empty;
+state Head to Tail;
+state Tail to Wire;
+state Wire
+  to Head when 1 Head and not (3 Head).

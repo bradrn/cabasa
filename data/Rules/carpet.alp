@@ -1,0 +1,7 @@
+state Off
+  to A when 1 B;
+state A
+  to B;
+state B
+  to Off when 3 B,
+  to A.
