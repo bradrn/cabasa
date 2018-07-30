@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase                  #-}
 {-# LANGUAGE NamedFieldPuns              #-}
 {-# LANGUAGE RecordWildCards             #-}
+{-# LANGUAGE ScopedTypeVariables         #-}
 {-# LANGUAGE TypeApplications            #-}
 {-# LANGUAGE ViewPatterns                #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
@@ -13,9 +14,12 @@ import Control.Monad ((=<<), forever, replicateM, void, when)
 import Data.Foldable (for_, find)
 import Data.IORef
 import Data.Maybe (fromMaybe)
+import Data.Proxy
+import GHC.TypeLits (natVal)
 import System.Process (callCommand)
 
 import Control.Comonad.Store hiding (pos)
+import qualified Data.Finite as F
 import Data.Text (pack)
 import Graphics.Rendering.Cairo hiding (clip)
 import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
@@ -382,14 +386,18 @@ setCurrentRule :: T.Application -> Maybe String -> String -> T.Rule -> IO ()
 setCurrentRule app name text ruleType = do
     let fn = case ruleType of
                  T.ALPACA ->
-                     let mkGrid _rule _states = CAVals $ CAVals'
-                             { _defaultPattern = fromList $ replicate 100 $ replicate 100 0
-                             , _state2color = \s -> (app ^. T.colors) !! s
-                             , _encodeInt = id
-                             , _decodeInt = id
-                             , ..
-                             }
-                     in return . fmap (uncurry mkGrid) . runALPACA @StdGen
+                     let mkGrid (SomeRule (_rule :: CARule StdGen (F.Finite n))) =
+                             let maxVal = natVal (Proxy @n)
+                             in CAVals $ CAVals'
+                                 { _defaultPattern =
+                                       fromList $ replicate 100 $ replicate 100 $ 0
+                                 , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
+                                 , _encodeInt = fromInteger . F.getFinite
+                                 , _decodeInt = F.finite . min (maxVal-1) . toInteger
+                                 , _states = F.finites
+                                 , ..
+                                 }
+                     in return . fmap mkGrid . runALPACA @StdGen
                  T.Hint   -> runHint
     fn text >>= \case
          Left err -> showMessageDialog (Just $ app ^. T.window)

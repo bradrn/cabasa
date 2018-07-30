@@ -46,4 +46,5 @@ executable cabasa
                      , microlens >= 0.4    && < 0.5
                      , microlens-th >= 0.4 && < 0.5
                      , template-haskell >= 2.12 && < 2.13
+                     , finite-typelits >= 0.1 && < 0.2
                      , cellular-automata
