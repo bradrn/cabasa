@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-11.11
+resolver: lts-12.2
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -40,8 +40,6 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- gtk3-0.14.8
-- gio-0.13.4.1
 - ../cellular-automata
 
 # Override default flag values for local packages and extra-deps
