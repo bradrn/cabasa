@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns              #-}
 {-# LANGUAGE RecordWildCards             #-}
 {-# LANGUAGE ScopedTypeVariables         #-}
+{-# LANGUAGE TupleSections               #-}
 {-# LANGUAGE TypeApplications            #-}
 {-# LANGUAGE ViewPatterns                #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
@@ -13,7 +14,7 @@ import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Monad ((=<<), forever, replicateM, void, when)
 import Data.Foldable (for_, find)
 import Data.IORef
-import Data.Maybe (fromMaybe)
+import Data.Maybe (isJust, fromMaybe)
 import Data.Proxy
 import GHC.TypeLits (natVal)
 import System.Process (callCommand)
@@ -384,28 +385,37 @@ popPattern app = do
 
 setCurrentRule :: T.Application -> Maybe String -> String -> T.Rule -> IO ()
 setCurrentRule app name text ruleType = do
-    let fn = case ruleType of
+    -- 'fn' is the rule-parsing function, which varies depending on 'ruleType'.
+    -- If the parsing operation succeeds ('Right'), it returns a tuple; the
+    -- first element is the 'CAVals' which has been parsed, and the second is a
+    -- 'Bool' stating if the screen needs to be cleared (as it may need to be if
+    -- e.g. an ALPACA initial configuration has been defined and loaded into
+    -- '_defaultPattern').
+    let fn :: String -> IO (Either String (CAVals, Bool))
+        fn = case ruleType of
                  T.ALPACA ->
-                     let mkGrid (SomeRule (_rule :: CARule StdGen (F.Finite n))) =
+                     let mkGrid (AlpacaData{ rule = (rule :: CARule StdGen (F.Finite n))
+                                           , initConfig }) =
                              let maxVal = natVal (Proxy @n)
-                             in CAVals $ CAVals'
-                                 { _defaultPattern =
-                                       fromList $ replicate 100 $ replicate 100 $ 0
+                             in (,isJust initConfig) $ CAVals $ CAVals'
+                                 { _defaultPattern = case initConfig of
+                                       Just p  -> p
+                                       Nothing -> fromList $ replicate 100 $ replicate 100 $ 0
                                  , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
                                  , _encodeInt = fromInteger . F.getFinite
                                  , _decodeInt = F.finite . min (maxVal-1) . toInteger
                                  , _states = F.finites
-                                 , ..
+                                 , _rule = rule
                                  }
                      in return . fmap mkGrid . runALPACA @StdGen
-                 T.Hint   -> runHint
+                 T.Hint   -> (fmap . fmap . fmap) (,False) runHint
     fn text >>= \case
          Left err -> showMessageDialog (Just $ app ^. T.window)
                                        MessageError
                                        ButtonsOk
                                        err
                                        (const $ pure ())
-         Right (CAVals _ca) -> do
+         Right (CAVals _ca, pressClear) -> do
              g <- newStdGen
              T.withState app $ \old -> do
                  let encFn = old ^. T.encodeInt
@@ -422,6 +432,8 @@ setCurrentRule app name text ruleType = do
                  curstate  = app ^. T.curstate
              (listStoreClear curstatem) >> forM_ (enumFromTo 0 $ length (_ca ^. T.states) - 1) (listStoreAppend curstatem)
              comboBoxSetActive curstate 0
+
+             when pressClear $ menuItemEmitActivate (app ^. T.clearPattern)
 
              -- Because we're changing the currentPattern, we need to redraw
              widgetQueueDraw $ app ^. T.canvas
