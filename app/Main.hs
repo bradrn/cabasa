@@ -394,7 +394,7 @@ setCurrentRule app name text ruleType = do
     let fn :: String -> IO (Either String (CAVals, Bool))
         fn = case ruleType of
                  T.ALPACA ->
-                     let mkGrid (AlpacaData{ rule = (rule :: CARule StdGen (F.Finite n))
+                     let mkGrid (AlpacaData{ rule = (rule :: StochRule StdGen (F.Finite n))
                                            , initConfig }) =
                              let maxVal = natVal (Proxy @n)
                              in (,isJust initConfig) $ CAVals $ CAVals'
