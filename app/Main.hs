@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP                         #-}
+{-# LANGUAGE FlexibleContexts            #-}
 {-# LANGUAGE LambdaCase                  #-}
 {-# LANGUAGE NamedFieldPuns              #-}
+{-# LANGUAGE RankNTypes                  #-}
 {-# LANGUAGE RecordWildCards             #-}
 {-# LANGUAGE ScopedTypeVariables         #-}
 {-# LANGUAGE TupleSections               #-}
@@ -394,12 +396,12 @@ setCurrentRule app name text ruleType = do
     let fn :: String -> IO (Either String (CAVals, Bool))
         fn = case ruleType of
                  T.ALPACA ->
-                     let mkGrid (AlpacaData{ rule = (rule :: StochRule StdGen (F.Finite n))
+                     let mkGrid (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
                                            , initConfig }) =
                              let maxVal = natVal (Proxy @n)
                              in (,isJust initConfig) $ CAVals $ CAVals'
                                  { _defaultPattern = case initConfig of
-                                       Just p  -> p
+                                       Just p  -> fromList p
                                        Nothing -> fromList $ replicate 100 $ replicate 100 $ 0
                                  , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
                                  , _encodeInt = fromInteger . F.getFinite

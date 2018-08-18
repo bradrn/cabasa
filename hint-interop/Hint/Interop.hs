@@ -1,7 +1,9 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE TemplateHaskell           #-}
 
 {-|
@@ -22,7 +24,7 @@ import CA
 -- | A record containing all the various bits and pieces of information
 -- which the application needs to know to load a new rule.
 data CAVals' t = CAVals'
-    { _rule :: StochRule StdGen t                     -- ^ The rule itself
+    { _rule :: Universe t -> Rand StdGen t           -- ^ The rule itself
     , _states :: [t]                                 -- ^ The states which can be selected from the state selection menu
     , _defaultPattern :: Universe t                  -- ^ The default pattern displayed before anything has been edited
     , _state2color :: t -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
