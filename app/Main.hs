@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                         #-}
 {-# LANGUAGE FlexibleContexts            #-}
 {-# LANGUAGE LambdaCase                  #-}
+{-# LANGUAGE MultiWayIf                  #-}
 {-# LANGUAGE NamedFieldPuns              #-}
 {-# LANGUAGE RankNTypes                  #-}
 {-# LANGUAGE RecordWildCards             #-}
@@ -89,7 +90,8 @@ main = do
     _setRuleWindow <- builderGetObject builder castToWindow   "setRuleWindow"
     _setRuleBtn    <- builderGetObject builder castToButton   "setRuleBtn"
     _newRuleBuf    <- builderGetObject builder castToTextView "newRuleView" >>= textViewGetBuffer
-    _catype        <- builderGetObject builder castToComboBox "catype"
+    _alpacaLang    <- builderGetObject builder castToRadioMenuItem "alpacaLang"
+    _haskellLang   <- builderGetObject builder castToRadioMenuItem "haskellLang"
     _saveRuleAs    <- builderGetObject builder castToMenuItem "saveRuleAs"
     _openRule      <- builderGetObject builder castToMenuItem "openRule"
 
@@ -312,12 +314,11 @@ main = do
     _setRuleBtn `on` buttonActivated $ do
        (start, end) <- textBufferGetBounds _newRuleBuf
        text <- textBufferGetText @_ @String _newRuleBuf start end True
-       opt <- comboBoxGetActive _catype
-       let ruleType = case opt of { 0 -> T.ALPACA; 1 -> T.Hint; _ -> error "ERROR: combobox gone wrong!" }
+       ruleType <- getCurrentLang app
        setCurrentRule app Nothing text ruleType
     _newRuleBuf `on` bufferChanged $ writeIORef _currentRuleName Nothing
     _saveRuleAs `on` menuItemActivated $ void $ do
-        ruleType <- comboBoxGetActive _catype <&> \case { 0 -> T.ALPACA; 1 -> T.Hint; _ -> error "ERROR: combobox gone wrong!" }
+        ruleType <- getCurrentLang app
         withFileDialogChoice (getRuleFileChooser app $ Just ruleType) FileChooserActionSave $ \fChooser fName -> do
             (start, end) <- textBufferGetBounds _newRuleBuf
             text <- textBufferGetText @_ @String _newRuleBuf start end True
@@ -336,9 +337,9 @@ main = do
             ruleText <- readFile fName
             textBufferSetText _newRuleBuf ruleText
             case takeExtension fName of
-                ".alp" -> comboBoxSetActive _catype 0
-                ".hs"  -> comboBoxSetActive _catype 1
-                ".lhs" -> comboBoxSetActive _catype 1
+                ".alp" -> checkMenuItemSetActive _alpacaLang  True
+                ".hs"  -> checkMenuItemSetActive _haskellLang True
+                ".lhs" -> checkMenuItemSetActive _haskellLang True
                 _      -> return ()
 
     _window `on` objectDestroy $ mainQuit
@@ -384,6 +385,14 @@ popPattern app = do
                 return $ state & T.saved .~ Nothing
                                & (T.currentPattern . _1) .~ fst prev
             Nothing -> pure state
+
+getCurrentLang :: T.Application -> IO T.Rule
+getCurrentLang app = do
+    alpacaOn <- checkMenuItemGetActive (app ^. T.alpacaLang)
+    haskellOn <- checkMenuItemGetActive (app ^. T.haskellLang)
+    return $ if | alpacaOn  -> T.ALPACA
+                | haskellOn -> T.Hint
+                | otherwise -> error "Error in radio button at getCurrentLang!\nThis is a bug; please report it to the package maintainer."
 
 setCurrentRule :: T.Application -> Maybe String -> String -> T.Rule -> IO ()
 setCurrentRule app name text ruleType = do

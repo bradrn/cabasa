@@ -58,7 +58,8 @@ data GuiObjects = GuiObjects
     , _setRuleWindow :: Window
     , _setRuleBtn    :: Button
     , _newRuleBuf    :: TextBuffer
-    , _catype        :: ComboBox
+    , _alpacaLang    :: RadioMenuItem
+    , _haskellLang   :: RadioMenuItem
     , _saveRuleAs    :: MenuItem
     , _openRule      :: MenuItem
     }
