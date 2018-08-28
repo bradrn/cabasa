@@ -26,7 +26,7 @@ import Control.Comonad.Store hiding (pos)
 import qualified Data.Finite as F
 import Data.Text (pack)
 import Graphics.Rendering.Cairo hiding (clip)
-import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
+import Graphics.UI.Gtk
 import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
 import Lens.Micro hiding (set)
@@ -37,6 +37,7 @@ import CA hiding (pos)
 import CA.ALPACA
 import qualified CA.Format.MCell as MC
 import CA.Utils (conwayLife)
+import Canvas
 import Hint
 import Hint.Interop
 import Paths_cabasa
@@ -127,62 +128,7 @@ main = do
                         , T._appIORefs     = ioRefs
                         }
 
-    widgetAddEvents _canvas [ButtonPressMask, ButtonReleaseMask, ButtonMotionMask, ScrollMask]
-
-    _canvas `on` draw $ T.withState app $ \state -> do
-        let renderFn = state ^. T.state2color
-            currentPattern' = renderFn <$> state ^. T.currentPattern . _1
-        pos' <- liftIO $ readIORef _pos
-        renderUniverse _canvas currentPattern' pos'
-    let canvasMouseHandler :: HasCoordinates t => EventM t Bool
-        canvasMouseHandler = do
-            (canvasX, canvasY) <- eventCoordinates
-            liftIO $ do
-                pos'@T.Pos{..} <- readIORef _pos
-                let viewX = floor $ canvasX / _cellWidth
-                    viewY = floor $ canvasY / _cellHeight
-                    viewP = Point viewX viewY
-                    gridP = Point (_leftXCoord + viewX) (_topYCoord + viewY)
-                lastPoint' <- readIORef _lastPoint
-                when (maybe True (/= viewP) lastPoint') $ do
-                    readIORef _currentMode >>= \case
-                        T.DrawMode -> do
-                            stnum <- comboBoxGetActiveIter _curstate >>= \case
-                                Nothing -> return 0
-                                Just iter -> listStoreGetValue _curstatem $ listStoreIterToIndex iter
-                            T.modifyState app $ \state ->
-                                let newst = (state ^. T.states) !! stnum
-                                in state & (T.currentPattern . _1) %~ modifyPoint gridP (const newst)
-                        T.MoveMode -> case lastPoint' of
-                            Nothing -> return ()
-                            Just (Point lastX lastY) -> writeIORef _pos $
-                                pos' & over T.leftXCoord (+ (lastX-viewX))
-                                     & over T.topYCoord  (+ (lastY-viewY))
-                    writeIORef _lastPoint $ Just viewP
-                    widgetQueueDraw _canvas
-            return True
-    _canvas `on` buttonPressEvent  $ canvasMouseHandler
-    _canvas `on` motionNotifyEvent $ canvasMouseHandler
-    _canvas `on` buttonReleaseEvent $ liftIO $ writeIORef _lastPoint Nothing $> True
-
-    _clearPattern `on` menuItemActivated $ do
-        modifyGeneration app (const 0)
-        T.modifyStateM app $ \state -> do
-            let defGrid = state ^. T.defaultPattern
-                defPos = T.Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
-            writeIORef _pos defPos
-            return $ state & T.saved .~ Nothing
-                           & (T.currentPattern . _1) .~ defGrid
-        widgetQueueDraw _canvas
-    let modifyCellSize :: (Double -> Double) -> IO ()
-        modifyCellSize f = do
-            modifyIORef _pos $ over T.cellWidth  f
-                             . over T.cellHeight f
-            widgetQueueDraw _canvas
-    _canvas `on` scrollEvent $ eventScrollDirection >>= \case
-        ScrollUp   -> liftIO $ modifyCellSize (*2) $> True
-        ScrollDown -> liftIO $ modifyCellSize (/2) $> True
-        _          -> return False
+    addCanvasHandlers app modifyGeneration
 
     _drawMode `on` menuItemActivated $ writeIORef _currentMode T.DrawMode >> widgetSetSensitive _drawopts True
     _moveMode `on` menuItemActivated $ writeIORef _currentMode T.MoveMode >> widgetSetSensitive _drawopts False
@@ -536,97 +482,3 @@ showMessageDialog window level buttons message fn = do
     result <- dialogRun d
     widgetDestroy d
     fn result
-
-renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Render ()
-renderUniverse canvas grid T.Pos{..} = do
-{-
-This is a bit complex. The universe is finite, so it is possible to move the
-viewport to a place which is outside the universe. In this case, only part of
-the universe can be displayed, as in the following graphic, where . represents
-the universe, solid lines represent the viewport and outlined lines represent
-the part of the universe shown on the canvas:
-┌──────────────┐
-│              │
-│              │
-│      ╔═══════╡
-│      ║.......│.....
-│      ║.......│.....
-│      ║.......│.....
-│      ║.......│.....
-└──────╨───────┘.....
-        .............
-        .............
-These parts are represented using Pos, Bounds and Coord values as follows:
-┌────────────────────────────────────────────┐
-│ Pos{..}               ^                 ^  │
-│ viewportBs :: Bounds  |                 |  │
-│                       |topRowCoord      |  │
-│                       |                 |  │
-│                       |                 |  │
-│                       |                 |  │
-│                       v                 |  │
-│                     ╔══════════════════════╡
-│ leftColCoord        ║actualBs :: Bounds |  │
-│<------------------->║                   |  │
-│                     ║                   |  │
-│                     ║                   |  │
-│                     ║     bottomRowCoord|  │
-│                     ║                   |  │
-│<--------------------║-------------------|->│
-│  rightColCoord      ║                   |  │
-│                     ║                   v  │
-└─────────────────────╨──────────────────────┘
-That is, the viewport is represented using Pos{..} (the third argument) and
-viewportBs, and the part of the universe which is shown on the canvas is
-represented by actualBs and the various Coord values.
--}
-    w <- liftIO $ __ <$> widgetGetAllocatedWidth canvas
-    h <- liftIO $ __ <$> widgetGetAllocatedHeight canvas
-    let viewportBs = Bounds
-            { boundsLeft = _leftXCoord
-            , boundsTop  = _topYCoord
-            , boundsRight  = ceiling $ __ _leftXCoord + (w / _cellWidth)
-            , boundsBottom = ceiling $ __ _topYCoord  + (h / _cellHeight)
-            }
-        (actualBs, clipped) = clipInside grid viewportBs
-
-        leftColCoord  = boundsLeft  actualBs - boundsLeft viewportBs
-        rightColCoord = boundsRight actualBs - boundsLeft viewportBs + 1
-        topRowCoord    = boundsTop    actualBs - boundsTop viewportBs
-        bottomRowCoord = boundsBottom actualBs - boundsTop viewportBs + 1
-
-
-    for_ (zip [fromIntegral leftColCoord..] clipped) $ \(i, row) ->
-        for_ (zip [fromIntegral topRowCoord..] row) $ \(j, (r, g, b)) -> do
-            setSourceRGB r g b
-            rectangle (i*_cellWidth) (j*_cellHeight) _cellWidth _cellHeight
-            fill
-
-    setLineWidth 1.5
-    when (_cellHeight > 2) $
-        for_ [boundsTop actualBs..boundsBottom actualBs] $ \row -> do
-            setSourceRGBA 0 0 0 (getOpacity row)
-            let yCoord = (__ $ row - boundsTop viewportBs) * _cellHeight
-                xCoordLeft  = (__ leftColCoord ) * _cellWidth
-                xCoordRight = (__ rightColCoord) * _cellWidth
-            -- Draw a horizontal line at yCoord
-            moveTo xCoordLeft  yCoord
-            lineTo xCoordRight yCoord
-            stroke
-
-    when (_cellWidth > 2) $
-        for_ [boundsLeft actualBs..boundsRight actualBs] $ \col -> do
-            setSourceRGBA 0 0 0 (getOpacity col)
-            let xCoord = (__ $ col - boundsLeft viewportBs) * _cellWidth
-                yCoordTop    = (__ topRowCoord   ) * _cellHeight
-                yCoordBottom = (__ bottomRowCoord) * _cellHeight
-            -- Draw a vertical line at xCoord
-            moveTo xCoord yCoordTop
-            lineTo xCoord yCoordBottom
-            stroke
-  where
-    getOpacity n = if n `mod` 10 == 0 then 0.3 else 0.15
-
--- Short, type-restricted version of fromIntegral for convenience
-__ :: Integral a => a -> Double
-__ = fromIntegral
