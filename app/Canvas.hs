@@ -11,10 +11,11 @@ import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
 import Lens.Micro
 
 import CA hiding (pos)
+import Common
 import Types
 
-addCanvasHandlers :: Application -> (Application -> (Int -> Int) -> IO ())-> IO ()
-addCanvasHandlers app modifyGeneration = do
+addCanvasHandlers :: Application -> IO ()
+addCanvasHandlers app = do
     let canvas' = app ^. canvas  -- because we use this field so much
     widgetAddEvents canvas' [ButtonPressMask, ButtonReleaseMask, ButtonMotionMask, ScrollMask]
 
