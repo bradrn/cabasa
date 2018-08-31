@@ -15,14 +15,13 @@ module Main (main) where
 
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Monad ((=<<), forever, replicateM, void, when)
-import Data.Foldable (for_, find)
+import Data.Foldable (find)
 import Data.IORef
 import Data.Maybe (isJust, fromMaybe)
 import Data.Proxy
 import GHC.TypeLits (natVal)
 import System.Process (callCommand)
 
-import Control.Comonad.Store hiding (pos)
 import qualified Data.Finite as F
 import Data.Text (pack)
 import Graphics.Rendering.Cairo hiding (clip)
