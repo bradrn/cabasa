@@ -30,6 +30,7 @@ executable cabasa
   other-modules:       Paths_cabasa
                      , Canvas
                      , Common
+                     , ControlButtons
                      , Hint
                      , Types
   default-language:    Haskell2010

@@ -13,13 +13,12 @@
 
 module Main (main) where
 
-import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
-import Control.Monad ((=<<), forever, void, when)
+import Control.Concurrent (ThreadId)
+import Control.Monad ((=<<), void, when)
 import Data.Foldable (find)
 import Data.IORef
 import System.Process (callCommand)
 
-import Data.Text (pack)
 import Graphics.Rendering.Cairo hiding (clip)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.General.CssProvider
@@ -33,6 +32,7 @@ import qualified CA.Format.MCell as MC
 import CA.Utils (conwayLife)
 import Canvas
 import Common
+import ControlButtons
 import Hint.Interop
 import Paths_cabasa
 import qualified Types as T
@@ -127,26 +127,7 @@ main = do
     _drawMode `on` menuItemActivated $ writeIORef _currentMode T.DrawMode >> widgetSetSensitive _drawopts True
     _moveMode `on` menuItemActivated $ writeIORef _currentMode T.MoveMode >> widgetSetSensitive _drawopts False
 
-    _step `on` buttonActivated $ savePattern app >> runGen app postGUIAsync
-    _run `on` buttonActivated $ readIORef _runThread >>= \case
-        Just t -> do
-            killThread t
-            writeIORef _runThread Nothing
-            imageSetFromStock _runIcon (pack "gtk-media-play") IconSizeButton
-        Nothing -> do
-            savePattern app
-            t <- forkIO $ forever $ runGen app postGUISync >> threadDelay 100000
-            writeIORef _runThread $ Just t
-            imageSetFromStock _runIcon (pack "gtk-media-pause") IconSizeButton
-    _reset `on` buttonActivated $ do
-        readIORef _runThread >>= \case
-            Just t -> do
-                killThread t
-                writeIORef _runThread Nothing
-                imageSetFromStock _runIcon (pack "gtk-media-play") IconSizeButton
-            Nothing -> return ()
-        popPattern app
-        widgetQueueDraw _canvas
+    addControlButtonHandlers app
 
     _savePatternAs `on` menuItemActivated $ void $
         withFileDialogChoice (getPatternFileChooser app) FileChooserActionSave $ const $ \fName ->
