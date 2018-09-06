@@ -15,27 +15,39 @@ import Types
 
 addSetRuleWindowHandlers :: Application -> IO ()
 addSetRuleWindowHandlers app = do
-    _ <- (app ^. setRuleWindow) `on` deleteEvent $ liftIO $ do
-        readIORef (app ^. currentRuleName) >>= \case
-            Just _  -> pure ()
-            Nothing ->
-                showMessageDialog
-                    (Just (app ^. setRuleWindow))
-                    MessageQuestion
-                    ButtonsYesNo
-                    "Do you want to save your changes?" $ \case
-                        ResponseYes -> menuItemEmitActivate (app ^. saveRuleAs)
-                        _ -> pure ()
-        widgetHide (app ^. setRuleWindow)
-        return True
-    _ <- (app ^. setRuleBtn) `on` buttonActivated $ do
-       (start, end) <- textBufferGetBounds (app ^. newRuleBuf)
-       text <- textBufferGetText @_ @String (app ^. newRuleBuf) start end True
-       ruleType <- getCurrentLang app
-       setCurrentRule app Nothing text ruleType
+    _ <- (app ^. setRuleWindow) `on` deleteEvent $ liftIO $ setRuleWindowDeleteHandler app
+    _ <- (app ^. setRuleBtn) `on` buttonActivated $ setRuleBtnHandler app
     _ <- (app ^. newRuleBuf) `on` bufferChanged $ writeIORef (app ^. currentRuleName) Nothing
-    _ <- (app ^. saveRuleAs) `on` menuItemActivated $ void $ do
-        ruleType <- getCurrentLang app
+    _ <- (app ^. saveRuleAs) `on` menuItemActivated $ saveRuleAsHandler app
+    _ <- (app ^. openRule) `on` menuItemActivated $ openRuleHandler app
+    return ()
+
+setRuleWindowDeleteHandler :: Application -> IO Bool
+setRuleWindowDeleteHandler app = do
+    readIORef (app ^. currentRuleName) >>= \case
+        Just _  -> pure ()
+        Nothing ->
+            showMessageDialog
+                (Just (app ^. setRuleWindow))
+                MessageQuestion
+                ButtonsYesNo
+                "Do you want to save your changes?" $ \case
+                    ResponseYes -> menuItemEmitActivate (app ^. saveRuleAs)
+                    _ -> pure ()
+    widgetHide (app ^. setRuleWindow)
+    return True
+
+setRuleBtnHandler :: Application -> IO ()
+setRuleBtnHandler app = do
+    (start, end) <- textBufferGetBounds (app ^. newRuleBuf)
+    text <- textBufferGetText @_ @String (app ^. newRuleBuf) start end True
+    ruleType <- getCurrentLang app
+    setCurrentRule app Nothing text ruleType
+
+saveRuleAsHandler :: Application -> IO ()
+saveRuleAsHandler app = do
+    ruleType <- getCurrentLang app
+    void $
         withFileDialogChoice (getRuleFileChooser app $ Just ruleType) FileChooserActionSave $ \fChooser fName -> do
             (start, end) <- textBufferGetBounds (app ^. newRuleBuf)
             text <- textBufferGetText @_ @String (app ^. newRuleBuf) start end True
@@ -49,7 +61,10 @@ addSetRuleWindowHandlers app = do
                     _       -> writeFile  fName             text
                 Nothing     -> writeFile  fName             text
             writeIORef (app ^. currentRuleName) (Just $ takeBaseName fName)
-    _ <- (app ^. openRule) `on` menuItemActivated $ void $
+
+openRuleHandler :: Application -> IO ()
+openRuleHandler app =
+    void $
         withFileDialogChoice (getRuleFileChooser app Nothing) FileChooserActionOpen $ const $ \fName -> do
             ruleText <- readFile fName
             textBufferSetText (app ^. newRuleBuf) ruleText
@@ -58,4 +73,3 @@ addSetRuleWindowHandlers app = do
                 ".hs"  -> checkMenuItemSetActive (app ^. haskellLang) True
                 ".lhs" -> checkMenuItemSetActive (app ^. haskellLang) True
                 _      -> return ()
-    return ()
