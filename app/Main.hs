@@ -19,7 +19,6 @@ import Data.Foldable (find)
 import Data.IORef
 import System.Process (callCommand)
 
-import Graphics.Rendering.Cairo hiding (clip)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
