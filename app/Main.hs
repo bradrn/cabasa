@@ -35,6 +35,7 @@ import Common
 import ControlButtons
 import Hint.Interop
 import Paths_cabasa
+import SetRuleWindow
 import qualified Types as T
 
 main :: IO ()
@@ -219,49 +220,8 @@ main = do
     _quit `on` menuItemActivated $ mainQuit
 
     _setRule `on` menuItemActivated $ widgetShowAll _setRuleWindow
-    _setRuleWindow `on` deleteEvent $ liftIO $ do
-        readIORef _currentRuleName >>= \case
-            Just _  -> pure ()
-            Nothing ->
-                showMessageDialog
-                    (Just _setRuleWindow)
-                    MessageQuestion
-                    ButtonsYesNo
-                    "Do you want to save your changes?" $ \case
-                        ResponseYes -> menuItemEmitActivate _saveRuleAs
-                        _ -> pure ()
-        widgetHide _setRuleWindow
-        return True
-    _setRuleBtn `on` buttonActivated $ do
-       (start, end) <- textBufferGetBounds _newRuleBuf
-       text <- textBufferGetText @_ @String _newRuleBuf start end True
-       ruleType <- getCurrentLang app
-       setCurrentRule app Nothing text ruleType
-    _newRuleBuf `on` bufferChanged $ writeIORef _currentRuleName Nothing
-    _saveRuleAs `on` menuItemActivated $ void $ do
-        ruleType <- getCurrentLang app
-        withFileDialogChoice (getRuleFileChooser app $ Just ruleType) FileChooserActionSave $ \fChooser fName -> do
-            (start, end) <- textBufferGetBounds _newRuleBuf
-            text <- textBufferGetText @_ @String _newRuleBuf start end True
-            fileChooserGetFilter fChooser >>= \case
-                Just fFilter -> fileFilterGetName fFilter >>= \case
-                    -- As we know that there are only two filters, the first
-                    -- character of the filter offers a useful heuristic to
-                    -- determine the file type
-                    ('A':_) -> writeFile (fName -<.> "alp") text
-                    ('H':_) -> writeFile (fName -<.> "hs" ) text
-                    _       -> writeFile  fName             text
-                Nothing     -> writeFile  fName             text
-            writeIORef _currentRuleName (Just $ takeBaseName fName)
-    _openRule `on` menuItemActivated $ void $
-        withFileDialogChoice (getRuleFileChooser app Nothing) FileChooserActionOpen $ const $ \fName -> do
-            ruleText <- readFile fName
-            textBufferSetText _newRuleBuf ruleText
-            case takeExtension fName of
-                ".alp" -> checkMenuItemSetActive _alpacaLang  True
-                ".hs"  -> checkMenuItemSetActive _haskellLang True
-                ".lhs" -> checkMenuItemSetActive _haskellLang True
-                _      -> return ()
+
+    addSetRuleWindowHandlers app
 
     _window `on` objectDestroy $ mainQuit
     widgetShowAll _window
