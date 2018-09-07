@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf       #-}
 {-# LANGUAGE TypeApplications #-}
 
-module SetRuleWindow where
+module SetRuleWindow (addSetRuleWindowHandlers) where
 
 import Data.IORef
 

@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns    #-}
 
-module Menu where
+module Menu (addMenuHandlers) where
 
 import Control.Monad (when, void)
 import Data.IORef

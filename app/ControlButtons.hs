@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module ControlButtons where
+module ControlButtons (addControlButtonHandlers) where
 
 import Control.Concurrent
 import Control.Monad (forever)
