@@ -14,20 +14,14 @@
 module Main (main) where
 
 import Control.Concurrent (ThreadId)
-import Control.Monad ((=<<), void, when)
-import Data.Foldable (find)
+import Control.Monad ((=<<))
 import Data.IORef
-import System.Process (callCommand)
 
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
-import Lens.Micro hiding (set)
-import System.Directory (listDirectory)
-import System.FilePath (combine, takeBaseName, takeExtension, (-<.>))
 
 import CA hiding (pos)
-import qualified CA.Format.MCell as MC
 import CA.Utils (conwayLife)
 import Canvas
 import Common
@@ -124,101 +118,7 @@ main = do
 
     addCanvasHandlers app
 
-    _drawMode `on` menuItemActivated $ writeIORef _currentMode T.DrawMode >> widgetSetSensitive _drawopts True
-    _moveMode `on` menuItemActivated $ writeIORef _currentMode T.MoveMode >> widgetSetSensitive _drawopts False
-
     addControlButtonHandlers app
-
-    _savePatternAs `on` menuItemActivated $ void $
-        withFileDialogChoice (getPatternFileChooser app) FileChooserActionSave $ const $ \fName ->
-        T.withState app $ \state -> do
-            ruleName <- readIORef _currentRuleName
-            let p = state ^. T.currentPattern . _1
-                ss = state ^. T.states
-                encode = state ^. T.encodeInt
-                mc = MC.MCell { MC.game = Just MC.SpecialRules
-                              , rule = ruleName
-                              , MC.speed = Nothing
-                              , MC.ccolors = Just (length ss)
-                              , MC.coloring = Nothing
-                              , MC.wrap = Just True
-                              , MC.palette = Nothing
-                              , MC.description = Nothing
-                              , MC.universe = encode <$> p
-                              , MC.diversities = []
-                              }
-            writeFile (fName -<.> "mcl") $ MC.encodeMCell mc
-    _openPattern `on` menuItemActivated $ void $
-        withFileDialogChoice (getPatternFileChooser app) FileChooserActionOpen $ const $ \fName -> do
-            pat <- readFile fName
-            case MC.decodeMCell pat of
-                Left err -> showMessageDialog (Just $ app ^. T.window) MessageError ButtonsOk
-                    ("Could not decode file! The error was:\n" ++ err)
-                    (const $ pure ())
-                -- We rename one field to avoid shadowing Hint.Interop.rule
-                Right MC.MCell{rule=rule'mc, ..} -> do
-                    case rule'mc of
-                        Nothing -> return ()
-                        Just rule' -> (maybe True (rule'==) <$> readIORef _currentRuleName) >>= flip when (do
-                            showMessageDialog (Just $ app ^. T.window) MessageInfo ButtonsYesNo
-                                "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
-                                $ \case
-                                ResponseYes ->
-                                    let findNewRule = showMessageDialog (Just $ app ^. T.window) MessageWarning ButtonsYesNo
-                                            ("Could not find the specified rule '" ++ rule' ++ "'.\nDo you want to find this rule manually?")
-                                            $ \case
-                                            ResponseYes -> withFileDialogChoice (getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
-                                            _ -> return Nothing
-                                    in do
-                                        dataFile <- getDataFileName "Rules"
-                                        listDirectory dataFile
-                                          >>= pure . find ((rule'==) . takeBaseName)
-                                          >>= (\case { Just a -> pure $ Just a; Nothing -> findNewRule}) >>= \case
-                                            Nothing -> return ()
-                                            Just (combine dataFile -> file) -> do
-                                                text <- readFile $ file
-                                                let ruleType = case (takeExtension file) of
-                                                        ".hs"  -> T.Hint
-                                                        ".alp" -> T.ALPACA
-                                                        _ -> T.ALPACA -- guess
-                                                setCurrentRule app (Just rule') text ruleType
-                                                -- Set this rule's text in the Set Rule dialog
-                                                textBufferSetText _newRuleBuf text
-                                _ -> return ())
-
-                    T.modifyState app $ \state ->
-                        let fn = state ^. T.decodeInt
-                        in state & (T.currentPattern . _1) .~ (fn <$> universe)
-                    widgetQueueDraw _canvas
-
-    _about `on` menuItemActivated $ do
-        a <- aboutDialogNew
-        set a
-            [ windowTransientFor     := app ^. T.window
-            , aboutDialogProgramName := "Cabasa"
-            , aboutDialogName        := "Cabasa"
-            , aboutDialogVersion     := "0.1"
-            , aboutDialogComments    := "An application for the simulation of arbitrary 2D cellular automata"
-            , aboutDialogAuthors     := ["Brad Neimann"]
-            , aboutDialogCopyright   := "© Brad Neimann 2017-2018"
-            ]
-        dialogRun a
-        widgetDestroy a
-    _uman `on` menuItemActivated $ void $ do
-        location <- getDataFileName "doc/UserManual.pdf"
-#ifdef mingw32_HOST_OS
-        callCommand $ "start " ++ location
-#elif defined linux_HOST_OS
-        callCommand $ "xdg-open" ++ location
-#elif defined darwin_HOST_OS
-        callCommand $ "open"     ++ location
-#else
-        showMessageDialog (Just window) MessageError ButtonsOk
-            "ERROR: Could not figure out how to open manual on your system.\nThis is a bug - please report it on the project website" pure
-#endif
-    _quit `on` menuItemActivated $ mainQuit
-
-    _setRule `on` menuItemActivated $ widgetShowAll _setRuleWindow
 
     addSetRuleWindowHandlers app
 
