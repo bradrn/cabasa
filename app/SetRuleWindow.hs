@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE MultiWayIf       #-}
 {-# LANGUAGE TypeApplications #-}
 
 module SetRuleWindow where
@@ -73,3 +74,11 @@ openRuleHandler app =
                 ".hs"  -> checkMenuItemSetActive (app ^. haskellLang) True
                 ".lhs" -> checkMenuItemSetActive (app ^. haskellLang) True
                 _      -> return ()
+
+getCurrentLang :: Application -> IO Rule
+getCurrentLang app = do
+    alpacaOn <- checkMenuItemGetActive (app ^. alpacaLang)
+    haskellOn <- checkMenuItemGetActive (app ^. haskellLang)
+    return $ if | alpacaOn  -> ALPACA
+                | haskellOn -> Hint
+                | otherwise -> error "Error in radio button at getCurrentLang!\nThis is a bug; please report it to the package maintainer."

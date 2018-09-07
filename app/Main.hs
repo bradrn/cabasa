@@ -125,3 +125,9 @@ main = do
     _window `on` objectDestroy $ mainQuit
     widgetShowAll _window
     mainGUI
+
+randomColors :: IO [(Double, Double, Double)]
+randomColors = fmap (([(1, 1, 1), (0, 0, 0)]++) . tuplize) $ replicateM 3 $ randomRs @Double (0, 1) <$> newStdGen
+  where
+    tuplize [(a:as), (b:bs), (c:cs)] = (a, b, c):tuplize [as, bs, cs]
+    tuplize _ = error "ERROR in tuplize"

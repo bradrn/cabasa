@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,7 +8,7 @@
 module Common where
 
 import Data.IORef
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import Data.Proxy
 import GHC.TypeLits (natVal)
 
@@ -33,45 +32,6 @@ modifyGeneration app f = do
     let g' = f g
     writeIORef generation g'
     labelSetText generationLbl $ show g'
-
--- When runGen is called from the main thread, we want to use
--- postGUIAsync, but when it's called from any other thread, we want to
--- use postGUISync - so we provide an argument to select the function.
--- See http://gtk2hs-users.narkive.com/QvCQw4q3/use-of-postguisync-within-the-main-gtk-thread
-runGen :: T.Application -> (IO () -> IO ()) -> IO ()
-runGen app postFn = do
-    T.modifyState app $ \state ->
-        let r = state ^. T.rule
-            (g, s) = state ^. T.currentPattern
-        in state & T.currentPattern .~ runRand (evolve r g) s
-    modifyGeneration app (+1)
-    postFn (widgetQueueDraw $ app ^. T.canvas)
-
-savePattern :: T.Application -> IO ()
-savePattern app = do
-    p <- readIORef $ app ^. T.pos
-    T.modifyState app $ \state ->
-        let T.ExistState'{_currentPattern=(g, _), _saved=s} = state
-        in state & T.saved .~ Just (fromMaybe (g, p) s)
-
-popPattern :: T.Application -> IO ()
-popPattern app = do
-    modifyGeneration app (const 0)
-    T.modifyStateM app $ \state ->
-        case state ^. T.saved of
-            Just prev -> do
-                writeIORef (app ^. T.pos) $ snd prev
-                return $ state & T.saved .~ Nothing
-                               & (T.currentPattern . _1) .~ fst prev
-            Nothing -> pure state
-
-getCurrentLang :: T.Application -> IO T.Rule
-getCurrentLang app = do
-    alpacaOn <- checkMenuItemGetActive (app ^. T.alpacaLang)
-    haskellOn <- checkMenuItemGetActive (app ^. T.haskellLang)
-    return $ if | alpacaOn  -> T.ALPACA
-                | haskellOn -> T.Hint
-                | otherwise -> error "Error in radio button at getCurrentLang!\nThis is a bug; please report it to the package maintainer."
 
 setCurrentRule :: T.Application -> Maybe String -> String -> T.Rule -> IO ()
 setCurrentRule app name text ruleType = do
@@ -188,12 +148,6 @@ getPatternFileChooser app action = do
             fileChooserSetCurrentFolder fChooser rulesDir
 
     return fChooser
-
-randomColors :: IO [(Double, Double, Double)]
-randomColors = fmap (([(1, 1, 1), (0, 0, 0)]++) . tuplize) $ replicateM 3 $ randomRs @Double (0, 1) <$> newStdGen
-  where
-    tuplize [(a:as), (b:bs), (c:cs)] = (a, b, c):tuplize [as, bs, cs]
-    tuplize _ = error "ERROR in tuplize"
 
 withFileDialogChoice :: (FileChooserAction -> IO FileChooserDialog)
                      -> FileChooserAction
