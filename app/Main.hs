@@ -24,7 +24,6 @@ import Graphics.UI.Gtk.General.StyleContext
 import CA hiding (pos)
 import CA.Utils (conwayLife)
 import Canvas
-import Common
 import ControlButtons
 import Hint.Interop
 import Menu
