@@ -48,13 +48,13 @@ main = do
 
     _savePatternAs <- builderGetObject builder castToMenuItem "savePatternAs"
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
-    _quit          <- builderGetObject builder castToMenuItem    "quit"
-    _setRule       <- builderGetObject builder castToMenuItem    "setRule"
+    _quit          <- builderGetObject builder castToMenuItem "quit"
+    _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
     _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
     _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
-    _about         <- builderGetObject builder castToMenuItem    "about"
-    _uman          <- builderGetObject builder castToMenuItem  "uman"
+    _about         <- builderGetObject builder castToMenuItem "about"
+    _uman          <- builderGetObject builder castToMenuItem "uman"
 
     ------- Main window widgets -------
 
@@ -63,9 +63,9 @@ main = do
     _step          <- builderGetObject builder castToButton      "step"
     _reset         <- builderGetObject builder castToButton      "reset"
     _canvas        <- builderGetObject builder castToDrawingArea "canvas"
-    _generationLbl <- builderGetObject builder castToLabel "generation"
-    _drawopts      <- builderGetObject builder castToBox       "drawopts"
-    _curstate      <- builderGetObject builder castToComboBox  "curstate"
+    _generationLbl <- builderGetObject builder castToLabel       "generation"
+    _drawopts      <- builderGetObject builder castToBox         "drawopts"
+    _curstate      <- builderGetObject builder castToComboBox    "curstate"
 
     _curstatem <- listStoreNew [0, 1]
     comboBoxSetModel _curstate (Just _curstatem)
@@ -76,13 +76,13 @@ main = do
 
     ------- Set new rule dialog -------
 
-    _setRuleWindow <- builderGetObject builder castToWindow   "setRuleWindow"
-    _setRuleBtn    <- builderGetObject builder castToButton   "setRuleBtn"
-    _newRuleBuf    <- builderGetObject builder castToTextView "newRuleView" >>= textViewGetBuffer
+    _setRuleWindow <- builderGetObject builder castToWindow        "setRuleWindow"
+    _setRuleBtn    <- builderGetObject builder castToButton        "setRuleBtn"
+    _newRuleBuf    <- builderGetObject builder castToTextView      "newRuleView" >>= textViewGetBuffer
     _alpacaLang    <- builderGetObject builder castToRadioMenuItem "alpacaLang"
     _haskellLang   <- builderGetObject builder castToRadioMenuItem "haskellLang"
-    _saveRuleAs    <- builderGetObject builder castToMenuItem "saveRuleAs"
-    _openRule      <- builderGetObject builder castToMenuItem "openRule"
+    _saveRuleAs    <- builderGetObject builder castToMenuItem      "saveRuleAs"
+    _openRule      <- builderGetObject builder castToMenuItem      "openRule"
 
     let guiObjects = T.GuiObjects{..}
 
