@@ -27,6 +27,7 @@ import Canvas
 import Common
 import ControlButtons
 import Hint.Interop
+import Menu
 import Paths_cabasa
 import SetRuleWindow
 import qualified Types as T
@@ -119,6 +120,8 @@ main = do
     addCanvasHandlers app
 
     addControlButtonHandlers app
+
+    addMenuHandlers app
 
     addSetRuleWindowHandlers app
 
