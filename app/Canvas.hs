@@ -12,75 +12,75 @@ import Lens.Micro
 
 import CA hiding (pos)
 import Common
-import Types
+import qualified Types as T
 
-addCanvasHandlers :: Application -> IO ()
+addCanvasHandlers :: T.Application -> IO ()
 addCanvasHandlers app = do
-    let canvas' = app ^. canvas  -- because we use this field so much
+    let canvas' = app ^. T.canvas  -- because we use this field so much
     widgetAddEvents canvas' [ButtonPressMask, ButtonReleaseMask, ButtonMotionMask, ScrollMask]
 
-    _ <- canvas' `on` draw $ withState app $ \state -> do
-        let renderFn = state ^. state2color
-            currentPattern' = renderFn <$> state ^. currentPattern . _1
-        pos' <- liftIO $ readIORef (app ^. pos)
+    _ <- canvas' `on` draw $ T.withState app $ \state -> do
+        let renderFn = state ^. T.state2color
+            currentPattern' = renderFn <$> state ^. T.currentPattern . _1
+        pos' <- liftIO $ readIORef (app ^. T.pos)
         renderUniverse canvas' currentPattern' pos'
 
     _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler app
     _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler app
-    _ <- canvas' `on` buttonReleaseEvent $ liftIO $ writeIORef (app ^. lastPoint) Nothing $> True
+    _ <- canvas' `on` buttonReleaseEvent $ liftIO $ writeIORef (app ^. T.lastPoint) Nothing $> True
 
     let modifyCellSize :: (Double -> Double) -> IO ()
         modifyCellSize f = do
-            modifyIORef (app ^. pos) $ over cellWidth  f
-                                     . over cellHeight f
+            modifyIORef (app ^. T.pos) $ over T.cellWidth  f
+                                       . over T.cellHeight f
             widgetQueueDraw canvas'
     _ <- canvas' `on` scrollEvent $ eventScrollDirection >>= \case
         ScrollUp   -> liftIO $ modifyCellSize (*2) $> True
         ScrollDown -> liftIO $ modifyCellSize (/2) $> True
         _          -> return False
 
-    _ <- (app ^. clearPattern) `on` menuItemActivated $ do
+    _ <- (app ^. T.clearPattern) `on` menuItemActivated $ do
         modifyGeneration app (const 0)
-        modifyStateM app $ \state -> do
-            let defGrid = state ^. defaultPattern
-                defPos = Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
-            writeIORef (app ^. pos) defPos
-            return $ state & saved .~ Nothing
-                           & (currentPattern . _1) .~ defGrid
+        T.modifyStateM app $ \state -> do
+            let defGrid = state ^. T.defaultPattern
+                defPos = T.Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
+            writeIORef (app ^. T.pos) defPos
+            return $ state & T.saved .~ Nothing
+                           & (T.currentPattern . _1) .~ defGrid
         widgetQueueDraw canvas'
 
     return ()
 
-canvasMouseHandler :: HasCoordinates t => Application -> EventM t Bool
+canvasMouseHandler :: HasCoordinates t => T.Application -> EventM t Bool
 canvasMouseHandler app = do
     (canvasX, canvasY) <- eventCoordinates
     liftIO $ do
-        pos'@Pos{..} <- readIORef (app ^. pos)
+        pos'@T.Pos{..} <- readIORef (app ^. T.pos)
         let viewX = floor $ canvasX / _cellWidth
             viewY = floor $ canvasY / _cellHeight
             viewP = Point viewX viewY
             gridP = Point (_leftXCoord + viewX) (_topYCoord + viewY)
-        lastPoint' <- readIORef (app ^. lastPoint)
+        lastPoint' <- readIORef (app ^. T.lastPoint)
         when (maybe True (/= viewP) lastPoint') $ do
-            readIORef (app ^. currentMode) >>= \case
-                DrawMode -> do
-                    stnum <- comboBoxGetActiveIter (app ^. curstate) >>= \case
+            readIORef (app ^. T.currentMode) >>= \case
+                T.DrawMode -> do
+                    stnum <- comboBoxGetActiveIter (app ^. T.curstate) >>= \case
                         Nothing -> return 0
-                        Just iter -> listStoreGetValue (app ^. curstatem) $ listStoreIterToIndex iter
-                    modifyState app $ \state ->
-                        let newst = (state ^. states) !! stnum
-                        in state & (currentPattern . _1) %~ modifyPoint gridP (const newst)
-                MoveMode -> case lastPoint' of
+                        Just iter -> listStoreGetValue (app ^. T.curstatem) $ listStoreIterToIndex iter
+                    T.modifyState app $ \state ->
+                        let newst = (state ^. T.states) !! stnum
+                        in state & (T.currentPattern . _1) %~ modifyPoint gridP (const newst)
+                T.MoveMode -> case lastPoint' of
                     Nothing -> return ()
-                    Just (Point lastX lastY) -> writeIORef (app ^. pos) $
-                        pos' & over leftXCoord (+ (lastX-viewX))
-                             & over topYCoord  (+ (lastY-viewY))
-            writeIORef (app ^. lastPoint) $ Just viewP
-            widgetQueueDraw (app ^. canvas)
+                    Just (Point lastX lastY) -> writeIORef (app ^. T.pos) $
+                        pos' & over T.leftXCoord (+ (lastX-viewX))
+                             & over T.topYCoord  (+ (lastY-viewY))
+            writeIORef (app ^. T.lastPoint) $ Just viewP
+            widgetQueueDraw (app ^. T.canvas)
     return True
 
-renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> Pos -> Render ()
-renderUniverse canvas grid Pos{..} = do
+renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Render ()
+renderUniverse canvas grid T.Pos{..} = do
 {-
 This is a bit complex. The universe is finite, so it is possible to move the
 viewport to a place which is outside the universe. In this case, only part of

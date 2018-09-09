@@ -12,46 +12,46 @@ import Lens.Micro
 import System.FilePath
 
 import Common
-import Types
+import qualified Types as T
 
-addSetRuleWindowHandlers :: Application -> IO ()
+addSetRuleWindowHandlers :: T.Application -> IO ()
 addSetRuleWindowHandlers app = do
-    _ <- (app ^. setRuleWindow) `on` deleteEvent $ liftIO $ setRuleWindowDeleteHandler app
-    _ <- (app ^. setRuleBtn) `on` buttonActivated $ setRuleBtnHandler app
-    _ <- (app ^. newRuleBuf) `on` bufferChanged $ writeIORef (app ^. currentRuleName) Nothing
-    _ <- (app ^. saveRuleAs) `on` menuItemActivated $ saveRuleAsHandler app
-    _ <- (app ^. openRule) `on` menuItemActivated $ openRuleHandler app
+    _ <- (app ^. T.setRuleWindow) `on` deleteEvent $ liftIO $ setRuleWindowDeleteHandler app
+    _ <- (app ^. T.setRuleBtn) `on` buttonActivated $ setRuleBtnHandler app
+    _ <- (app ^. T.newRuleBuf) `on` bufferChanged $ writeIORef (app ^. T.currentRuleName) Nothing
+    _ <- (app ^. T.saveRuleAs) `on` menuItemActivated $ saveRuleAsHandler app
+    _ <- (app ^. T.openRule) `on` menuItemActivated $ openRuleHandler app
     return ()
 
-setRuleWindowDeleteHandler :: Application -> IO Bool
+setRuleWindowDeleteHandler :: T.Application -> IO Bool
 setRuleWindowDeleteHandler app = do
-    readIORef (app ^. currentRuleName) >>= \case
+    readIORef (app ^. T.currentRuleName) >>= \case
         Just _  -> pure ()
         Nothing ->
             showMessageDialog
-                (Just (app ^. setRuleWindow))
+                (Just (app ^. T.setRuleWindow))
                 MessageQuestion
                 ButtonsYesNo
                 "Do you want to save your changes?" $ \case
-                    ResponseYes -> menuItemEmitActivate (app ^. saveRuleAs)
+                    ResponseYes -> menuItemEmitActivate (app ^. T.saveRuleAs)
                     _ -> pure ()
-    widgetHide (app ^. setRuleWindow)
+    widgetHide (app ^. T.setRuleWindow)
     return True
 
-setRuleBtnHandler :: Application -> IO ()
+setRuleBtnHandler :: T.Application -> IO ()
 setRuleBtnHandler app = do
-    (start, end) <- textBufferGetBounds (app ^. newRuleBuf)
-    text <- textBufferGetText @_ @String (app ^. newRuleBuf) start end True
+    (start, end) <- textBufferGetBounds (app ^. T.newRuleBuf)
+    text <- textBufferGetText @_ @String (app ^. T.newRuleBuf) start end True
     ruleType <- getCurrentLang app
     setCurrentRule app Nothing text ruleType
 
-saveRuleAsHandler :: Application -> IO ()
+saveRuleAsHandler :: T.Application -> IO ()
 saveRuleAsHandler app = do
     ruleType <- getCurrentLang app
     void $
         withFileDialogChoice (getRuleFileChooser app $ Just ruleType) FileChooserActionSave $ \fChooser fName -> do
-            (start, end) <- textBufferGetBounds (app ^. newRuleBuf)
-            text <- textBufferGetText @_ @String (app ^. newRuleBuf) start end True
+            (start, end) <- textBufferGetBounds (app ^. T.newRuleBuf)
+            text <- textBufferGetText @_ @String (app ^. T.newRuleBuf) start end True
             fileChooserGetFilter fChooser >>= \case
                 Just fFilter -> fileFilterGetName fFilter >>= \case
                     -- As we know that there are only two filters, the first
@@ -61,24 +61,24 @@ saveRuleAsHandler app = do
                     ('H':_) -> writeFile (fName -<.> "hs" ) text
                     _       -> writeFile  fName             text
                 Nothing     -> writeFile  fName             text
-            writeIORef (app ^. currentRuleName) (Just $ takeBaseName fName)
+            writeIORef (app ^. T.currentRuleName) (Just $ takeBaseName fName)
 
-openRuleHandler :: Application -> IO ()
+openRuleHandler :: T.Application -> IO ()
 openRuleHandler app =
     void $
         withFileDialogChoice (getRuleFileChooser app Nothing) FileChooserActionOpen $ const $ \fName -> do
             ruleText <- readFile fName
-            textBufferSetText (app ^. newRuleBuf) ruleText
+            textBufferSetText (app ^. T.newRuleBuf) ruleText
             case takeExtension fName of
-                ".alp" -> checkMenuItemSetActive (app ^. alpacaLang)  True
-                ".hs"  -> checkMenuItemSetActive (app ^. haskellLang) True
-                ".lhs" -> checkMenuItemSetActive (app ^. haskellLang) True
+                ".alp" -> checkMenuItemSetActive (app ^. T.alpacaLang)  True
+                ".hs"  -> checkMenuItemSetActive (app ^. T.haskellLang) True
+                ".lhs" -> checkMenuItemSetActive (app ^. T.haskellLang) True
                 _      -> return ()
 
-getCurrentLang :: Application -> IO Rule
+getCurrentLang :: T.Application -> IO T.Rule
 getCurrentLang app = do
-    alpacaOn <- checkMenuItemGetActive (app ^. alpacaLang)
-    haskellOn <- checkMenuItemGetActive (app ^. haskellLang)
-    return $ if | alpacaOn  -> ALPACA
-                | haskellOn -> Hint
+    alpacaOn <- checkMenuItemGetActive (app ^. T.alpacaLang)
+    haskellOn <- checkMenuItemGetActive (app ^. T.haskellLang)
+    return $ if | alpacaOn  -> T.ALPACA
+                | haskellOn -> T.Hint
                 | otherwise -> error "Error in radio button at getCurrentLang!\nThis is a bug; please report it to the package maintainer."

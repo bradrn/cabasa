@@ -13,65 +13,65 @@ import Graphics.UI.Gtk
 import Lens.Micro
 
 import Common
-import Types
+import qualified Types as T
 
-addControlButtonHandlers :: Application -> IO ()
+addControlButtonHandlers :: T.Application -> IO ()
 addControlButtonHandlers app = do
-    _ <- (app ^. step) `on` buttonActivated $ savePattern app >> runGen app postGUIAsync
-    _ <- (app ^. run) `on` buttonActivated $ runButtonHandler app
-    _ <- (app ^. reset) `on` buttonActivated $ resetButtonHandler app
+    _ <- (app ^. T.step) `on` buttonActivated $ savePattern app >> runGen app postGUIAsync
+    _ <- (app ^. T.run) `on` buttonActivated $ runButtonHandler app
+    _ <- (app ^. T.reset) `on` buttonActivated $ resetButtonHandler app
     return ()
 
-runButtonHandler :: Application -> IO ()
-runButtonHandler app = readIORef (app ^. runThread) >>= \case
+runButtonHandler :: T.Application -> IO ()
+runButtonHandler app = readIORef (app ^. T.runThread) >>= \case
     Just t -> do
         killThread t
-        writeIORef (app ^. runThread) Nothing
-        imageSetFromStock (app ^. runIcon) (pack "gtk-media-play") IconSizeButton
+        writeIORef (app ^. T.runThread) Nothing
+        imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") IconSizeButton
     Nothing -> do
         savePattern app
         t <- forkIO $ forever $ runGen app postGUISync >> threadDelay 100000
-        writeIORef (app ^. runThread) $ Just t
-        imageSetFromStock (app ^. runIcon) (pack "gtk-media-pause") IconSizeButton
+        writeIORef (app ^. T.runThread) $ Just t
+        imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") IconSizeButton
 
-resetButtonHandler :: Application -> IO ()
+resetButtonHandler :: T.Application -> IO ()
 resetButtonHandler app = do
-    readIORef (app ^. runThread) >>= \case
+    readIORef (app ^. T.runThread) >>= \case
         Just t -> do
             killThread t
-            writeIORef (app ^. runThread) Nothing
-            imageSetFromStock (app ^. runIcon) (pack "gtk-media-play") IconSizeButton
+            writeIORef (app ^. T.runThread) Nothing
+            imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") IconSizeButton
         Nothing -> return ()
     popPattern app
-    widgetQueueDraw (app ^. canvas)
+    widgetQueueDraw (app ^. T.canvas)
 
-savePattern :: Application -> IO ()
+savePattern :: T.Application -> IO ()
 savePattern app = do
-    p <- readIORef $ app ^. pos
-    modifyState app $ \state ->
-        let ExistState'{_currentPattern=(g, _), _saved=s} = state
-        in state & saved .~ Just (fromMaybe (g, p) s)
+    p <- readIORef $ app ^. T.pos
+    T.modifyState app $ \state ->
+        let T.ExistState'{T._currentPattern=(g, _), T._saved=s} = state
+        in state & T.saved .~ Just (fromMaybe (g, p) s)
 
-popPattern :: Application -> IO ()
+popPattern :: T.Application -> IO ()
 popPattern app = do
     modifyGeneration app (const 0)
-    modifyStateM app $ \state ->
-        case state ^. saved of
+    T.modifyStateM app $ \state ->
+        case state ^. T.saved of
             Just prev -> do
-                writeIORef (app ^. pos) $ snd prev
-                return $ state & saved .~ Nothing
-                               & (currentPattern . _1) .~ fst prev
+                writeIORef (app ^. T.pos) $ snd prev
+                return $ state & T.saved .~ Nothing
+                               & (T.currentPattern . _1) .~ fst prev
             Nothing -> pure state
 
 -- When runGen is called from the main thread, we want to use
 -- postGUIAsync, but when it's called from any other thread, we want to
 -- use postGUISync - so we provide an argument to select the function.
 -- See http://gtk2hs-users.narkive.com/QvCQw4q3/use-of-postguisync-within-the-main-gtk-thread
-runGen :: Application -> (IO () -> IO ()) -> IO ()
+runGen :: T.Application -> (IO () -> IO ()) -> IO ()
 runGen app postFn = do
-    modifyState app $ \state ->
-        let r = state ^. rule
-            (g, s) = state ^. currentPattern
-        in state & currentPattern .~ runRand (evolve r g) s
+    T.modifyState app $ \state ->
+        let r = state ^. T.rule
+            (g, s) = state ^. T.currentPattern
+        in state & T.currentPattern .~ runRand (evolve r g) s
     modifyGeneration app (+1)
-    postFn (widgetQueueDraw $ app ^. canvas)
+    postFn (widgetQueueDraw $ app ^. T.canvas)
