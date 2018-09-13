@@ -36,32 +36,38 @@ data Application = Application
     }
 
 data GuiObjects = GuiObjects
-    { _window        :: Window
-    , _savePatternAs :: MenuItem
-    , _openPattern   :: MenuItem
-    , _quit          :: MenuItem
-    , _setRule       :: MenuItem
-    , _clearPattern  :: MenuItem
-    , _drawMode      :: MenuItem
-    , _moveMode      :: MenuItem
-    , _about         :: MenuItem
-    , _uman          :: MenuItem
-    , _run           :: Button
-    , _runIcon       :: Image
-    , _step          :: Button
-    , _reset         :: Button
-    , _canvas        :: DrawingArea
-    , _generationLbl :: Label
-    , _drawopts      :: Box
-    , _curstate      :: ComboBox
-    , _curstatem     :: ListStore Int
-    , _setRuleWindow :: Window
-    , _setRuleBtn    :: Button
-    , _newRuleBuf    :: TextBuffer
-    , _alpacaLang    :: RadioMenuItem
-    , _haskellLang   :: RadioMenuItem
-    , _saveRuleAs    :: MenuItem
-    , _openRule      :: MenuItem
+    { _window                :: Window
+    , _savePatternAs         :: MenuItem
+    , _openPattern           :: MenuItem
+    , _quit                  :: MenuItem
+    , _setRule               :: MenuItem
+    , _clearPattern          :: MenuItem
+    , _drawMode              :: MenuItem
+    , _moveMode              :: MenuItem
+    , _editSheet             :: MenuItem
+    , _about                 :: MenuItem
+    , _uman                  :: MenuItem
+    , _run                   :: Button
+    , _runIcon               :: Image
+    , _step                  :: Button
+    , _reset                 :: Button
+    , _canvas                :: DrawingArea
+    , _generationLbl         :: Label
+    , _drawopts              :: Box
+    , _curstate              :: ComboBox
+    , _curstatem             :: ListStore Int
+    , _setRuleWindow         :: Window
+    , _setRuleBtn            :: Button
+    , _newRuleBuf            :: TextBuffer
+    , _alpacaLang            :: RadioMenuItem
+    , _haskellLang           :: RadioMenuItem
+    , _saveRuleAs            :: MenuItem
+    , _openRule              :: MenuItem
+    , _editSheetWindow       :: Window
+    , _openSheet             :: MenuItem
+    , _saveSheetAs           :: MenuItem
+    , _sheetBuf              :: TextBuffer
+    , _editSheetWindowSetBtn :: Button
     }
 
 data Pos = Pos { _leftXCoord :: Coord 'X

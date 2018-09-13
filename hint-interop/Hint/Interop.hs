@@ -30,6 +30,7 @@ data CAVals' t = CAVals'
     , _state2color :: t -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
     , _encodeInt :: t -> Int                         -- ^ Encodes a state into an integer which __must__ be between 0 and 255. Used to save a pattern to a file.
     , _decodeInt :: Int -> t                         -- ^ Decodes a state from an integer between 0 and 255. Used to load a pattern from a file.
+    , _getName :: t -> Maybe String                  -- ^ Given a state, get its optional name as a string. Used with ALPACA stylesheets.
     }
 
 -- | If we decide to use a custom state type for our CA, we can't use that type

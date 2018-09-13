@@ -29,6 +29,7 @@ import Hint.Interop
 import Menu
 import Paths_cabasa
 import SetRuleWindow
+import StylesheetWindow
 import qualified Types as T
 
 main :: IO ()
@@ -53,6 +54,7 @@ main = do
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
     _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
     _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
+    _editSheet     <- builderGetObject builder castToMenuItem "editSheet"
     _about         <- builderGetObject builder castToMenuItem "about"
     _uman          <- builderGetObject builder castToMenuItem "uman"
 
@@ -84,6 +86,14 @@ main = do
     _saveRuleAs    <- builderGetObject builder castToMenuItem      "saveRuleAs"
     _openRule      <- builderGetObject builder castToMenuItem      "openRule"
 
+    ------- ALPACA Stylesheets dialog -------
+
+    _editSheetWindow       <- builderGetObject builder castToWindow   "editSheetWindow"
+    _openSheet             <- builderGetObject builder castToMenuItem "openSheet"
+    _saveSheetAs           <- builderGetObject builder castToMenuItem "saveSheetAs"
+    _sheetBuf              <- builderGetObject builder castToTextView "sheetView" >>= textViewGetBuffer
+    _editSheetWindowSetBtn <- builderGetObject builder castToButton   "editSheetWindowSetBtn"
+
     let guiObjects = T.GuiObjects{..}
 
     _existState <- do
@@ -95,6 +105,7 @@ main = do
             _encodeInt = fromEnum
             _decodeInt 1 = True
             _decodeInt _ = False
+            _getName = const Nothing
             _currentPattern = (fromList $ replicate 100 $ replicate 100 False, s)
             _saved = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
@@ -123,6 +134,8 @@ main = do
     addMenuHandlers app
 
     addSetRuleWindowHandlers app
+
+    addStylesheetWindowHandlers app
 
     _window `on` objectDestroy $ mainQuit
     widgetShowAll _window

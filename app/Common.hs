@@ -45,7 +45,8 @@ setCurrentRule app name text ruleType = do
         fn = case ruleType of
                  T.ALPACA ->
                      let mkGrid (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
-                                           , initConfig }) =
+                                           , initConfig
+                                           , stateData }) =
                              let maxVal = natVal (Proxy @n)
                              in (,isJust initConfig) $ CAVals $ CAVals'
                                  { _defaultPattern = case initConfig of
@@ -56,7 +57,7 @@ setCurrentRule app name text ruleType = do
                                  , _decodeInt = F.finite . min (maxVal-1) . toInteger
                                  , _states = F.finites
                                  , _rule = rule
-                                 }
+                                 , _getName = Just . fst . stateData}
                      in return . fmap mkGrid . runALPACA @StdGen
                  T.Hint   -> (fmap . fmap . fmap) (,False) runHint
     fn text >>= \case
