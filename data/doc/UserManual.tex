@@ -5,8 +5,9 @@
 \usepackage{subcaption}
 \usepackage{textcomp}
 
-\usepackage[sc]{mathpazo}
-\linespread{1.05}
+\usepackage{libertine}
+\usepackage{libertinust1math}
+\usepackage{inconsolata}
 
 \usepackage{menukeys}
 
@@ -26,15 +27,10 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta}
 
-\semiisopage
-\checkandfixthelayout
-
 \chapterstyle{bianchi}
 % Changing the fonts a bit
 \renewcommand*{\chapnamefont}{\normalfont\huge\itshape}
 \renewcommand*{\chaptitlefont}{\normalfont\Huge}
-\renewcommand*{\printchaptertitle}[1]{%
-  \hrule\vskip\onelineskip \centering \chaptitlefont #1\par}
 
 % Adapted from https://tex.stackexchange.com/a/315324/155372
 \newcommand{\grid}[2][blue!75]{
