@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE TemplateHaskell           #-}
 
@@ -10,8 +12,10 @@ module Types where
 
 import Control.Concurrent (ThreadId)
 import Data.IORef
+import GHC.Generics
 
-import Graphics.UI.Gtk
+import Data.Aeson.TH (deriveJSON, defaultOptions, fieldLabelModifier)
+import Graphics.UI.Gtk hiding (Settings)
 import Language.Haskell.TH.Syntax (mkName)
 import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
@@ -39,6 +43,7 @@ data GuiObjects = GuiObjects
     { _window                :: Window
     , _savePatternAs         :: MenuItem
     , _openPattern           :: MenuItem
+    , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
     , _setRule               :: MenuItem
     , _clearPattern          :: MenuItem
@@ -68,6 +73,13 @@ data GuiObjects = GuiObjects
     , _saveSheetAs           :: MenuItem
     , _sheetBuf              :: TextBuffer
     , _editSheetWindowSetBtn :: Button
+    , _settingsWindow        :: Dialog
+    , _settingsCancelBtn     :: Button
+    , _settingsOkBtn         :: Button
+    , _predefRulesDirChooser :: FileChooserButton
+    , _userRulesDirChooser   :: FileChooserButton
+    , _numColsAdjustment     :: Adjustment
+    , _numRowsAdjustment     :: Adjustment
     }
 
 data Pos = Pos { _leftXCoord :: Coord 'X
@@ -107,7 +119,25 @@ data IORefs = IORefs
     -- top left corner is showing the cell at (3, 8) but the mouse is also at
     -- this point then lastPoint is (0, 0) and not (3, 8).
   , _lastPoint       :: IORef (Maybe CA.Point)
+
+    -- Settings
+  , _settings        :: IORef Settings
   }
+
+data Settings = Settings
+  {
+    -- Predefined rules directory
+    _predefinedRulesDir :: Maybe FilePath
+
+    -- User-defined rules directory
+  , _userRulesDir       :: Maybe FilePath
+
+    -- Default grid size (rows, columns)
+  , _gridSize           :: Maybe (Int, Int)
+  } deriving (Generic, Show)
+
+makeLenses ''Settings
+deriveJSON defaultOptions{fieldLabelModifier = drop 1} ''Settings
 
 -- Basically this is just makeClassy, but we're changing the name of the
 -- generated lens because makeClassy does it with the wrong capitalisation

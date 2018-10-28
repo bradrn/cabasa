@@ -5,7 +5,7 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}
 
-module Common where
+module Common (module Common, module ShowDialog) where
 
 import Data.IORef
 import Data.Maybe (isJust)
@@ -22,6 +22,8 @@ import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
 
 import Hint.Interop
 import Paths_cabasa
+import Settings (getSetting')
+import ShowDialog
 import qualified Types as T
 
 modifyGeneration :: T.Application -> (Int -> Int) -> IO ()
@@ -44,21 +46,24 @@ setCurrentRule app name text ruleType = do
     let fn :: String -> IO (Either String (CAVals, Bool))
         fn = case ruleType of
                  T.ALPACA ->
-                     let mkGrid (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
+                     let mkGrid (numcols, numrows)
+                                (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
                                            , initConfig
                                            , stateData }) =
                              let maxVal = natVal (Proxy @n)
                              in (,isJust initConfig) $ CAVals $ CAVals'
                                  { _defaultPattern = case initConfig of
                                        Just p  -> fromList p
-                                       Nothing -> fromList $ replicate 100 $ replicate 100 $ 0
+                                       Nothing -> fromList $ replicate numrows $ replicate numcols $ 0
                                  , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
                                  , _encodeInt = fromInteger . F.getFinite
                                  , _decodeInt = F.finite . min (maxVal-1) . toInteger
                                  , _states = F.finites
                                  , _rule = rule
                                  , _getName = Just . fst . stateData}
-                     in return . fmap mkGrid . runALPACA @StdGen
+                     in \rule -> do
+                         gridSize <- getSetting' T.gridSize app
+                         return $ fmap (mkGrid gridSize) $ runALPACA @StdGen rule
                  T.Hint   -> (fmap . fmap . fmap) (,False) runHint
     fn text >>= \case
          Left err -> showMessageDialog (Just $ app ^. T.window)
@@ -163,10 +168,3 @@ withFileDialogChoice constr action contn = do
         _ -> pure Nothing
     widgetDestroy fChooser
     return result
-
-showMessageDialog :: Maybe Window -> MessageType -> ButtonsType -> String -> (ResponseId -> IO a) -> IO a
-showMessageDialog window level buttons message fn = do
-    d <- messageDialogNew window [DialogModal] level buttons message
-    result <- dialogRun d
-    widgetDestroy d
-    fn result

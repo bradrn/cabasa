@@ -1,22 +1,23 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ViewPatterns    #-}
 
 module Menu (addMenuHandlers) where
 
-import Control.Monad (when, void)
+import Control.Monad (when, void, filterM)
 import Data.IORef
 import Data.List (find)
 
 import qualified CA.Format.MCell as MC
 import Graphics.UI.Gtk
 import Lens.Micro hiding (set)
-import System.Directory (listDirectory)
-import System.FilePath (takeExtension, combine, takeBaseName, (-<.>))
+import System.FilePath ((</>), takeExtension, takeBaseName, (-<.>))
+import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
 import qualified Common as C
+import Settings (getSetting')
+import SettingsDialog
 import qualified Types as T
 import Paths_cabasa
 
@@ -35,6 +36,8 @@ addMenuHandlers app = do
 
     _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)
+
+    _ <- (app ^. T.runSettings) `on` menuItemActivated $ showSettingsDialog app
 
     _ <- (app ^. T.quit) `on` menuItemActivated $ mainQuit
 
@@ -84,12 +87,13 @@ openPattern app = void $
                                         ResponseYes -> C.withFileDialogChoice (C.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
                                         _ -> return Nothing
                                 in do
-                                    dataFile <- getDataFileName "Rules"
-                                    listDirectory dataFile
+                                    predefDir <- getSetting' T.predefinedRulesDir app
+                                    userDir   <- getSetting' T.userRulesDir       app
+                                    listDirectories [userDir, predefDir]
                                       >>= pure . find ((rule'==) . takeBaseName)
                                       >>= (\case { Just a -> pure $ Just a; Nothing -> findNewRule}) >>= \case
                                         Nothing -> return ()
-                                        Just (combine dataFile -> file) -> do
+                                        Just file -> do
                                             text <- readFile $ file
                                             let ruleType = case (takeExtension file) of
                                                     ".hs"  -> T.Hint
@@ -104,6 +108,14 @@ openPattern app = void $
                     let fn = state ^. T.decodeInt
                     in state & (T.currentPattern . _1) .~ (fn <$> universe)
                 widgetQueueDraw (app ^. T.canvas)
+  where
+    listDirectories :: [FilePath] -> IO [FilePath]
+    listDirectories ds =
+        filterM doesDirectoryExist ds
+        >>= traverse listDirectoryWithPath
+        >>= (pure . concat)
+      where
+        listDirectoryWithPath dir = (fmap . fmap) (dir </>) $ listDirectory dir
 
 showAboutDialog :: T.Application -> IO ()
 showAboutDialog app = do

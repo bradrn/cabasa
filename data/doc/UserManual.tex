@@ -353,14 +353,39 @@ In more detail:
     a dialog box will be shown asking you if you want to switch rules.
 \end{itemize}
 
-\subsection{The Local Rules and Patterns Directories}
-\label{sec:locdirs}
+\subsection{Finding rules}
+\label{sec:findrs}
 
-By default, Cabasa maintains two directories, called \texttt{Patterns} and \texttt{Rules}.
-As the names suggest, these are the default directories for saved patterns and rules respectively.
-Although there is nothing special about these directories in and of themselves --- you can save patterns and rules anywhere ---
-  the \texttt{Rules} directory is the place where Cabasa looks for unknown rules,
-  so you need to save your rules there if you want them to be found automatically when you open a pattern.
+If Cabasa needs to find a previously-saved rule (as may occur when e.g.\ opening a saved pattern),
+  it uses the following steps to find it:
+
+\begin{enumerate}
+\item Inspect the folder specified by the \texttt{User-defined rules directory} setting (see Section~\ref{sec:sets});
+  use the rule if it is found in this folder.
+\item Inspect the folder specified by the \texttt{Predefined rules directory} setting (see Section~\ref{sec:sets});
+  use the rule if it is found in this folder.
+\item The rule could not be found in any known folder; ask the user if they want to find it manually.
+\end{enumerate}
+
+\section{Settings}
+\label{sec:sets}
+
+Cabasa can be customised through the use of various settings.
+These can be accessed through the \menu{File > Settings} menu item.
+The following settings are currently supported:
+
+\begin{description}
+\item[Predefined rules directory]
+  The directory in which sample rules are stored.
+  (See Section~\ref{sec:findrs} for details.)
+\item[User-defined rules directory]
+  The directory in which user-defined rules are stored.
+  (See Section~\ref{sec:findrs} for details.)
+\item[Default grid size]
+  A default grid size of $x \times y$ causes the default grid to have a size of $x$ columns by $y$ rows.
+  Note that changing this setting does \textit{not} have any effect on the current grid;
+    it only takes effect if a new grid is made.
+\end{description}
 
 \chapter{Specifying CAs}
 \label{chap:speccas}

@@ -29,6 +29,7 @@ import Hint.Interop
 import Menu
 import Paths_cabasa
 import SetRuleWindow
+import Settings (getSettingFrom', readSettings)
 import StylesheetWindow
 import qualified Types as T
 
@@ -49,6 +50,7 @@ main = do
 
     _savePatternAs <- builderGetObject builder castToMenuItem "savePatternAs"
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
+    _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
@@ -94,19 +96,31 @@ main = do
     _sheetBuf              <- builderGetObject builder castToTextView "sheetView" >>= textViewGetBuffer
     _editSheetWindowSetBtn <- builderGetObject builder castToButton   "editSheetWindowSetBtn"
 
+    ------- Settings dialog -----------
+
+    _settingsWindow        <- builderGetObject builder castToDialog            "settingsWindow"
+    _settingsCancelBtn     <- builderGetObject builder castToButton            "settingsCancelBtn"
+    _settingsOkBtn         <- builderGetObject builder castToButton            "settingsOkBtn"
+    _predefRulesDirChooser <- builderGetObject builder castToFileChooserButton "predefRulesDirChooser"
+    _userRulesDirChooser   <- builderGetObject builder castToFileChooserButton "userRulesDirChooser"
+    _numColsAdjustment     <- builderGetObject builder castToAdjustment        "numColsAdjustment"
+    _numRowsAdjustment     <- builderGetObject builder castToAdjustment        "numRowsAdjustment"
+
     let guiObjects = T.GuiObjects{..}
 
+    _settings        <- newIORef =<< readSettings _window
     _existState <- do
         s <- getStdGen
+        (numcols, numrows) <- getSettingFrom' T.gridSize _settings
         let _rule = pure . conwayLife
             _states = [False, True]
-            _defaultPattern = fromList $ replicate 100 $ replicate 100 False
+            _defaultPattern = fromList $ replicate numrows $ replicate numcols False
             _state2color st = if st then (0,0,0) else (1,1,1)
             _encodeInt = fromEnum
             _decodeInt 1 = True
             _decodeInt _ = False
             _getName = const Nothing
-            _currentPattern = (fromList $ replicate 100 $ replicate 100 False, s)
+            _currentPattern = (_defaultPattern, s)
             _saved = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
     _currentRuleName <- newIORef @(Maybe String) Nothing
