@@ -74,41 +74,52 @@ openPattern app = void $
                 (const $ pure ())
             -- We rename one field to avoid shadowing Hint.Interop.rule
             Right MC.MCell{MC.rule=rule'mc, ..} -> do
-                case rule'mc of
-                    Nothing -> return ()
-                    Just rule' -> (maybe True (rule'==) <$> readIORef (app ^. T.currentRuleName)) >>= flip when (do
+                whenMaybeM rule'mc $ \rule' ->
+                    whenM (maybe True (rule'==) <$> readIORef (app ^. T.currentRuleName)) $ do
                         C.showMessageDialog (Just $ app ^. T.window) MessageInfo ButtonsYesNo
                             "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
                             $ \case
-                            ResponseYes ->
-                                let findNewRule = C.showMessageDialog (Just $ app ^. T.window) MessageWarning ButtonsYesNo
-                                        ("Could not find the specified rule '" ++ rule' ++ "'.\nDo you want to find this rule manually?")
-                                        $ \case
-                                        ResponseYes -> C.withFileDialogChoice (C.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
-                                        _ -> return Nothing
-                                in do
-                                    predefDir <- getSetting' T.predefinedRulesDir app
-                                    userDir   <- getSetting' T.userRulesDir       app
-                                    listDirectories [userDir, predefDir]
-                                      >>= pure . find ((rule'==) . takeBaseName)
-                                      >>= (\case { Just a -> pure $ Just a; Nothing -> findNewRule}) >>= \case
-                                        Nothing -> return ()
-                                        Just file -> do
-                                            text <- readFile $ file
-                                            let ruleType = case (takeExtension file) of
-                                                    ".hs"  -> T.Hint
-                                                    ".alp" -> T.ALPACA
-                                                    _ -> T.ALPACA -- guess
-                                            C.setCurrentRule app (Just rule') text ruleType
-                                            -- Set this rule's text in the Set Rule dialog
-                                            textBufferSetText (app ^. T.newRuleBuf) text
-                            _ -> return ())
+                            ResponseYes -> do
+                                predefDir <- getSetting' T.predefinedRulesDir app
+                                userDir   <- getSetting' T.userRulesDir       app
+
+                                rules <- listDirectories [userDir, predefDir]
+                                let ruleLocation = find ((rule'==) . takeBaseName) rules
+                                ruleLocationFinal <- findIfNotSelected rule' ruleLocation
+                                whenMaybeM ruleLocationFinal $ \file -> do
+                                    text <- readFile $ file
+                                    let ruleType = case (takeExtension file) of
+                                            ".hs"  -> T.Hint
+                                            ".alp" -> T.ALPACA
+                                            _ -> T.ALPACA -- guess
+                                    C.setCurrentRule app (Just rule') text ruleType
+                                    -- Set this rule's text in the Set Rule dialog
+                                    textBufferSetText (app ^. T.newRuleBuf) text
+                            _ -> return ()
 
                 T.modifyState app $ \state ->
                     let fn = state ^. T.decodeInt
                     in state & (T.currentPattern . _1) .~ (fn <$> universe)
                 widgetQueueDraw (app ^. T.canvas)
   where
+    whenM :: IO Bool -> IO () -> IO ()
+    whenM c i = c >>= flip when i
+
+    whenMaybeM :: Applicative t => Maybe a -> (a -> t ()) -> t ()
+    whenMaybeM Nothing _ = pure ()
+    whenMaybeM (Just a) f = f a
+
+    findIfNotSelected :: String -> Maybe FilePath -> IO (Maybe FilePath)
+    findIfNotSelected name Nothing = findNewRule name
+    findIfNotSelected _    (Just r) = pure $ Just r
+
+    findNewRule :: String -> IO (Maybe FilePath)
+    findNewRule name = C.showMessageDialog (Just $ app ^. T.window) MessageWarning ButtonsYesNo
+        ("Could not find the specified rule '" ++ name ++ "'.\nDo you want to find this rule manually?")
+        $ \case
+        ResponseYes -> C.withFileDialogChoice (C.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
+        _ -> return Nothing
+
     listDirectories :: [FilePath] -> IO [FilePath]
     listDirectories ds =
         filterM doesDirectoryExist ds
