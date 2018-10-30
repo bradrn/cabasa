@@ -8,7 +8,6 @@ import Language.Haskell.Interpreter
 import Language.Haskell.Interpreter.Unsafe (unsafeSetGhcOption)
 import System.IO.Temp (writeSystemTempFile)
 
-import CA
 import Hint.Interop
 
 runHint :: String -> IO (Either String CAVals)

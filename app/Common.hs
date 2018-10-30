@@ -97,7 +97,7 @@ setCurrentRule app name text ruleType =
 
 -- Returns a file chooser preconfigured to save or open rule files
 getRuleFileChooser :: T.Application -> Maybe T.Rule -> FileChooserAction -> IO FileChooserDialog
-getRuleFileChooser app filter action = do
+getRuleFileChooser app filterType action = do
     fChooser <- fileChooserDialogNew
         Nothing
         (Just $ app ^. T.setRuleWindow)
@@ -115,7 +115,7 @@ getRuleFileChooser app filter action = do
     fileFilterAddPattern haskellFilter "*.lhs"
     fileChooserAddFilter fChooser haskellFilter
 
-    case filter of
+    case filterType of
         Nothing -> pure ()
         Just T.ALPACA -> fileChooserSetFilter fChooser alpacaFilter
         Just T.Hint   -> fileChooserSetFilter fChooser haskellFilter
