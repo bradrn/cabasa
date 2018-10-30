@@ -36,36 +36,8 @@ modifyGeneration app f = do
     labelSetText generationLbl $ show g'
 
 setCurrentRule :: T.Application -> Maybe String -> String -> T.Rule -> IO ()
-setCurrentRule app name text ruleType = do
-    -- 'fn' is the rule-parsing function, which varies depending on 'ruleType'.
-    -- If the parsing operation succeeds ('Right'), it returns a tuple; the
-    -- first element is the 'CAVals' which has been parsed, and the second is a
-    -- 'Bool' stating if the screen needs to be cleared (as it may need to be if
-    -- e.g. an ALPACA initial configuration has been defined and loaded into
-    -- '_defaultPattern').
-    let fn :: String -> IO (Either String (CAVals, Bool))
-        fn = case ruleType of
-                 T.ALPACA ->
-                     let mkGrid (numcols, numrows)
-                                (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
-                                           , initConfig
-                                           , stateData }) =
-                             let maxVal = natVal (Proxy @n)
-                             in (,isJust initConfig) $ CAVals $ CAVals'
-                                 { _defaultPattern = case initConfig of
-                                       Just p  -> fromList p
-                                       Nothing -> fromList $ replicate numrows $ replicate numcols $ 0
-                                 , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
-                                 , _encodeInt = fromInteger . F.getFinite
-                                 , _decodeInt = F.finite . min (maxVal-1) . toInteger
-                                 , _states = F.finites
-                                 , _rule = rule
-                                 , _getName = Just . fst . stateData}
-                     in \rule -> do
-                         gridSize <- getSetting' T.gridSize app
-                         return $ fmap (mkGrid gridSize) $ runALPACA @StdGen rule
-                 T.Hint   -> (fmap . fmap . fmap) (,False) runHint
-    fn text >>= \case
+setCurrentRule app name text ruleType =
+    parseRule text >>= \case
          Left err -> showMessageDialog (Just $ app ^. T.window)
                                        MessageError
                                        ButtonsOk
@@ -93,6 +65,35 @@ setCurrentRule app name text ruleType = do
 
              -- Because we're changing the currentPattern, we need to redraw
              widgetQueueDraw $ app ^. T.canvas
+  where
+    -- 'parseRule' is the rule-parsing function, which varies depending on 'ruleType'.
+    -- If the parsing operation succeeds ('Right'), it returns a tuple; the
+    -- first element is the 'CAVals' which has been parsed, and the second is a
+    -- 'Bool' stating if the screen needs to be cleared (as it may need to be if
+    -- e.g. an ALPACA initial configuration has been defined and loaded into
+    -- '_defaultPattern').
+    parseRule :: String -> IO (Either String (CAVals, Bool))
+    parseRule = case ruleType of
+             T.ALPACA -> \rule -> do
+                     gridSize <- getSetting' T.gridSize app
+                     return $ fmap (mkALPACAGrid gridSize) $ runALPACA @StdGen rule
+             T.Hint   -> (fmap . fmap . fmap) (,False) runHint
+      where
+        mkALPACAGrid (numcols, numrows)
+                     (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
+                                , initConfig
+                                , stateData }) =
+            let maxVal = natVal (Proxy @n)
+            in (,isJust initConfig) $ CAVals $ CAVals'
+                { _defaultPattern = case initConfig of
+                      Just p  -> fromList p
+                      Nothing -> fromList $ replicate numrows $ replicate numcols $ 0
+                , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
+                , _encodeInt = fromInteger . F.getFinite
+                , _decodeInt = F.finite . min (maxVal-1) . toInteger
+                , _states = F.finites
+                , _rule = rule
+                , _getName = Just . fst . stateData}
 
 -- Returns a file chooser preconfigured to save or open rule files
 getRuleFileChooser :: T.Application -> Maybe T.Rule -> FileChooserAction -> IO FileChooserDialog
