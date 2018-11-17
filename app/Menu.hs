@@ -15,7 +15,7 @@ import System.FilePath ((</>), takeExtension, takeBaseName, (-<.>))
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
-import qualified Common as C
+import qualified Utils as U
 import Settings (getSetting')
 import SettingsDialog
 import qualified Types as T
@@ -45,7 +45,7 @@ addMenuHandlers app = do
 
 savePattern :: T.Application -> IO ()
 savePattern app = void $
-    C.withFileDialogChoice (C.getPatternFileChooser app) FileChooserActionSave $ const $ \fName ->
+    U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionSave $ const $ \fName ->
         T.withState app $ \state -> do
             ruleName <- readIORef (app ^. T.currentRuleName)
             let p = state ^. T.currentPattern . _1
@@ -66,17 +66,17 @@ savePattern app = void $
 
 openPattern :: T.Application -> IO ()
 openPattern app = void $
-    C.withFileDialogChoice (C.getPatternFileChooser app) FileChooserActionOpen $ const $ \fName -> do
+    U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionOpen $ const $ \fName -> do
         pat <- readFile fName
         case MC.decodeMCell pat of
-            Left err -> C.showMessageDialog (Just $ app ^. T.window) MessageError ButtonsOk
+            Left err -> U.showMessageDialog (Just $ app ^. T.window) MessageError ButtonsOk
                 ("Could not decode file! The error was:\n" ++ err)
                 (const $ pure ())
             -- We rename one field to avoid shadowing Hint.Interop.rule
             Right MC.MCell{MC.rule=rule'mc, ..} -> do
                 whenMaybeM rule'mc $ \rule' ->
                     whenM (maybe True (rule'==) <$> readIORef (app ^. T.currentRuleName)) $ do
-                        C.showMessageDialog (Just $ app ^. T.window) MessageInfo ButtonsYesNo
+                        U.showMessageDialog (Just $ app ^. T.window) MessageInfo ButtonsYesNo
                             "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
                             $ \case
                             ResponseYes -> do
@@ -92,7 +92,7 @@ openPattern app = void $
                                             ".hs"  -> T.Hint
                                             ".alp" -> T.ALPACA
                                             _ -> T.ALPACA -- guess
-                                    C.setCurrentRule app (Just rule') text ruleType
+                                    U.setCurrentRule app (Just rule') text ruleType
                                     -- Set this rule's text in the Set Rule dialog
                                     textBufferSetText (app ^. T.newRuleBuf) text
                             _ -> return ()
@@ -114,10 +114,10 @@ openPattern app = void $
     findIfNotSelected _    (Just r) = pure $ Just r
 
     findNewRule :: String -> IO (Maybe FilePath)
-    findNewRule name = C.showMessageDialog (Just $ app ^. T.window) MessageWarning ButtonsYesNo
+    findNewRule name = U.showMessageDialog (Just $ app ^. T.window) MessageWarning ButtonsYesNo
         ("Could not find the specified rule '" ++ name ++ "'.\nDo you want to find this rule manually?")
         $ \case
-        ResponseYes -> C.withFileDialogChoice (C.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
+        ResponseYes -> U.withFileDialogChoice (U.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
         _ -> return Nothing
 
     listDirectories :: [FilePath] -> IO [FilePath]

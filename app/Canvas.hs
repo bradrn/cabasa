@@ -11,7 +11,7 @@ import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
 import Lens.Micro
 
 import CA hiding (pos)
-import Common
+import Utils
 import qualified Types as T
 
 addCanvasHandlers :: T.Application -> IO ()

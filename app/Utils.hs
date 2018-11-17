@@ -5,7 +5,7 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}
 
-module Common (module Common, module ShowDialog) where
+module Utils (module Utils, module ShowDialog) where
 
 import Data.IORef
 import Data.Maybe (isJust)

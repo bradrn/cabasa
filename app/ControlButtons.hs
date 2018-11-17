@@ -12,7 +12,7 @@ import Data.Text (pack)
 import Graphics.UI.Gtk
 import Lens.Micro
 
-import Common
+import Utils
 import qualified Types as T
 
 addControlButtonHandlers :: T.Application -> IO ()

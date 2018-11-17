@@ -9,7 +9,7 @@ import Graphics.UI.Gtk
 import Lens.Micro
 import System.FilePath
 
-import Common
+import Utils
 import qualified Types as T
 
 addStylesheetWindowHandlers :: T.Application -> IO ()
