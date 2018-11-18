@@ -48,6 +48,7 @@ main = do
 
     ------- Menu widgets --------------
 
+    _savePattern   <- builderGetObject builder castToMenuItem "savePattern"
     _savePatternAs <- builderGetObject builder castToMenuItem "savePatternAs"
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"

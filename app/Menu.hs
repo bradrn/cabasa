@@ -28,7 +28,8 @@ addMenuHandlers app = do
     _ <- (app ^. T.moveMode) `on` menuItemActivated $
         writeIORef (app ^. T.currentMode) T.MoveMode >> widgetSetSensitive (app ^. T.drawopts) False
 
-    _ <- (app ^. T.savePatternAs) `on` menuItemActivated $ savePattern app
+    _ <- (app ^. T.savePattern)   `on` menuItemActivated $ savePattern app
+    _ <- (app ^. T.savePatternAs) `on` menuItemActivated $ savePatternAs app
     _ <- (app ^. T.openPattern)   `on` menuItemActivated $ openPattern app
 
     _ <- (app ^. T.about) `on` menuItemActivated $ showAboutDialog app
@@ -45,24 +46,36 @@ addMenuHandlers app = do
 
 savePattern :: T.Application -> IO ()
 savePattern app = void $
-    U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionSave $ const $ \fName ->
-        T.withState app $ \state -> do
-            ruleName <- readIORef (app ^. T.currentRuleName)
-            let p = state ^. T.currentPattern . _1
-                ss = state ^. T.states
-                encode = state ^. T.encodeInt
-                mc = MC.MCell { MC.game = Just MC.SpecialRules
-                              , MC.rule = ruleName
-                              , MC.speed = Nothing
-                              , MC.ccolors = Just (length ss)
-                              , MC.coloring = Nothing
-                              , MC.wrap = Just True
-                              , MC.palette = Nothing
-                              , MC.description = Nothing
-                              , MC.universe = encode <$> p
-                              , MC.diversities = []
-                              }
-            writeFile (fName -<.> "mcl") $ MC.encodeMCell mc
+    readIORef (app ^. T.currentPatternPath) >>= \case
+        Nothing   -> savePatternAs app
+        Just path -> writeCurrentPattern app path
+
+savePatternAs :: T.Application -> IO ()
+savePatternAs app = void $
+    U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionSave $
+        const $ writeCurrentPattern app
+
+writeCurrentPattern :: T.Application -> FilePath -> IO ()
+writeCurrentPattern app fName = 
+    T.withState app $ \state -> do
+        ruleName <- readIORef (app ^. T.currentRuleName)
+        let p = state ^. T.currentPattern . _1
+            ss = state ^. T.states
+            encode = state ^. T.encodeInt
+            mc = MC.MCell { MC.game = Just MC.SpecialRules
+                          , MC.rule = ruleName
+                          , MC.speed = Nothing
+                          , MC.ccolors = Just (length ss)
+                          , MC.coloring = Nothing
+                          , MC.wrap = Just True
+                          , MC.palette = Nothing
+                          , MC.description = Nothing
+                          , MC.universe = encode <$> p
+                          , MC.diversities = []
+                          }
+            path = fName -<.> "mcl"
+        writeFile path $ MC.encodeMCell mc
+        writeIORef (app ^. T.currentPatternPath) $ Just path
 
 openPattern :: T.Application -> IO ()
 openPattern app = void $
@@ -100,6 +113,7 @@ openPattern app = void $
                 T.modifyState app $ \state ->
                     let fn = state ^. T.decodeInt
                     in state & (T.currentPattern . _1) .~ (fn <$> universe)
+                writeIORef (app ^. T.currentPatternPath) $ Just pat
                 widgetQueueDraw (app ^. T.canvas)
   where
     whenM :: IO Bool -> IO () -> IO ()

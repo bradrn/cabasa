@@ -41,6 +41,7 @@ data Application = Application
 
 data GuiObjects = GuiObjects
     { _window                :: Window
+    , _savePattern           :: MenuItem
     , _savePatternAs         :: MenuItem
     , _openPattern           :: MenuItem
     , _runSettings           :: MenuItem
@@ -101,6 +102,7 @@ data IORefs = IORefs
   {
     _existState     :: IORef ExistState
   , _currentRuleName :: IORef (Maybe String) -- The name of the current rule
+  , _currentPatternPath :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _generation      :: IORef Int --The current generation
   , _currentMode     :: IORef InteractionMode -- The current mode
 
