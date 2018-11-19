@@ -125,13 +125,14 @@ main = do
             _currentPattern = (_defaultPattern, s)
             _saved = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
-    _currentRulePath <- newIORef @(Maybe String) Nothing
-    _pos             <- newIORef $
+    _currentPatternPath <- newIORef @(Maybe String) Nothing
+    _currentRulePath    <- newIORef @(Maybe String) Nothing
+    _pos                <- newIORef $
         T.Pos { _leftXCoord = 0, _topYCoord = 0, _cellWidth = 16, _cellHeight = 16 }
-    _runThread       <- newIORef @(Maybe ThreadId) Nothing
-    _lastPoint       <- newIORef @(Maybe CA.Point) Nothing
-    _generation      <- newIORef @Int 0
-    _currentMode     <- newIORef T.DrawMode
+    _runThread          <- newIORef @(Maybe ThreadId) Nothing
+    _lastPoint          <- newIORef @(Maybe CA.Point) Nothing
+    _generation         <- newIORef @Int 0
+    _currentMode        <- newIORef T.DrawMode
 
     let ioRefs = T.IORefs{..}
 
