@@ -19,6 +19,7 @@ import Graphics.UI.Gtk hiding (Settings)
 import Language.Haskell.TH.Syntax (mkName)
 import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
+import System.FilePath (takeBaseName)
 
 import CA hiding (pos)
 import Hint.Interop
@@ -67,6 +68,7 @@ data GuiObjects = GuiObjects
     , _newRuleBuf            :: TextBuffer
     , _alpacaLang            :: RadioMenuItem
     , _haskellLang           :: RadioMenuItem
+    , _saveRule              :: MenuItem
     , _saveRuleAs            :: MenuItem
     , _openRule              :: MenuItem
     , _editSheetWindow       :: Window
@@ -101,7 +103,7 @@ data ExistState = forall t. Eq t => ExistState (ExistState' t)
 data IORefs = IORefs
   {
     _existState         :: IORef ExistState
-  , _currentRuleName    :: IORef (Maybe String)     -- The name of the current rule
+  , _currentRulePath    :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _generation         :: IORef Int                -- The current generation
   , _currentMode        :: IORef InteractionMode    -- The current mode
@@ -146,6 +148,9 @@ deriveJSON defaultOptions{fieldLabelModifier = drop 1} ''Settings
 -- (it does e.g. CAVals' -> cAVals' when we want CAVals' -> caVals')
 flip makeLensesWith ''CAVals' $ classyRules & lensClass .~ const (Just (mkName "HasCAVals'", mkName "caVals'"))
 flip makeLensesWith ''IORefs  $ classyRules & lensClass .~ const (Just (mkName "HasIORefs" , mkName "ioRefs" ))
+
+getCurrentRuleName :: Application -> IO (Maybe String)
+getCurrentRuleName app = (fmap . fmap) takeBaseName $ readIORef (app ^. currentPatternPath)
 
 makeClassy ''GuiObjects
 

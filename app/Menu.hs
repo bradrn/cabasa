@@ -58,7 +58,7 @@ savePatternAs app = void $
 writeCurrentPattern :: T.Application -> FilePath -> IO ()
 writeCurrentPattern app fName = 
     T.withState app $ \state -> do
-        ruleName <- readIORef (app ^. T.currentRuleName)
+        ruleName <- app & T.getCurrentRuleName
         let p = state ^. T.currentPattern . _1
             ss = state ^. T.states
             encode = state ^. T.encodeInt
@@ -88,7 +88,7 @@ openPattern app = void $
             -- We rename one field to avoid shadowing Hint.Interop.rule
             Right MC.MCell{MC.rule=rule'mc, ..} -> do
                 whenMaybeM rule'mc $ \rule' ->
-                    whenM (maybe True (rule'==) <$> readIORef (app ^. T.currentRuleName)) $ do
+                    whenM (maybe True (rule'==) <$> (app & T.getCurrentRuleName)) $ do
                         U.showMessageDialog (Just $ app ^. T.window) MessageInfo ButtonsYesNo
                             "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
                             $ \case
@@ -105,7 +105,7 @@ openPattern app = void $
                                             ".hs"  -> T.Hint
                                             ".alp" -> T.ALPACA
                                             _ -> T.ALPACA -- guess
-                                    U.setCurrentRule app (Just rule') text ruleType
+                                    U.setCurrentRule app (Just file) text ruleType
                                     -- Set this rule's text in the Set Rule dialog
                                     textBufferSetText (app ^. T.newRuleBuf) text
                             _ -> return ()

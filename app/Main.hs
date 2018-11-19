@@ -86,6 +86,7 @@ main = do
     _newRuleBuf    <- builderGetObject builder castToTextView      "newRuleView" >>= textViewGetBuffer
     _alpacaLang    <- builderGetObject builder castToRadioMenuItem "alpacaLang"
     _haskellLang   <- builderGetObject builder castToRadioMenuItem "haskellLang"
+    _saveRule      <- builderGetObject builder castToMenuItem      "saveRule"
     _saveRuleAs    <- builderGetObject builder castToMenuItem      "saveRuleAs"
     _openRule      <- builderGetObject builder castToMenuItem      "openRule"
 
@@ -124,7 +125,7 @@ main = do
             _currentPattern = (_defaultPattern, s)
             _saved = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
-    _currentRuleName <- newIORef @(Maybe String) Nothing
+    _currentRulePath <- newIORef @(Maybe String) Nothing
     _pos             <- newIORef $
         T.Pos { _leftXCoord = 0, _topYCoord = 0, _cellWidth = 16, _cellHeight = 16 }
     _runThread       <- newIORef @(Maybe ThreadId) Nothing

@@ -18,14 +18,14 @@ addSetRuleWindowHandlers :: T.Application -> IO ()
 addSetRuleWindowHandlers app = do
     _ <- (app ^. T.setRuleWindow) `on` deleteEvent $ liftIO $ setRuleWindowDeleteHandler app
     _ <- (app ^. T.setRuleBtn) `on` buttonActivated $ setRuleBtnHandler app
-    _ <- (app ^. T.newRuleBuf) `on` bufferChanged $ writeIORef (app ^. T.currentRuleName) Nothing
-    _ <- (app ^. T.saveRuleAs) `on` menuItemActivated $ saveRuleAsHandler app
+    _ <- (app ^. T.saveRule)   `on` menuItemActivated $ saveRule app
+    _ <- (app ^. T.saveRuleAs) `on` menuItemActivated $ saveRuleAs app
     _ <- (app ^. T.openRule) `on` menuItemActivated $ openRuleHandler app
     return ()
 
 setRuleWindowDeleteHandler :: T.Application -> IO Bool
 setRuleWindowDeleteHandler app = do
-    readIORef (app ^. T.currentRuleName) >>= \case
+    (app & T.getCurrentRuleName) >>= \case
         Just _  -> pure ()
         Nothing ->
             showMessageDialog
@@ -45,23 +45,35 @@ setRuleBtnHandler app = do
     ruleType <- getCurrentLang app
     setCurrentRule app Nothing text ruleType
 
-saveRuleAsHandler :: T.Application -> IO ()
-saveRuleAsHandler app = do
+saveRule :: T.Application -> IO ()
+saveRule app =
+    readIORef (app ^. T.currentRulePath) >>= \case
+        Nothing    -> saveRuleAs app
+        Just fName -> writeCurrentRule app fName
+
+saveRuleAs :: T.Application -> IO ()
+saveRuleAs app = do
     ruleType <- getCurrentLang app
     void $
         withFileDialogChoice (getRuleFileChooser app $ Just ruleType) FileChooserActionSave $ \fChooser fName -> do
-            (start, end) <- textBufferGetBounds (app ^. T.newRuleBuf)
-            text <- textBufferGetText @_ @String (app ^. T.newRuleBuf) start end True
-            fileChooserGetFilter fChooser >>= \case
-                Just fFilter -> fileFilterGetName fFilter >>= \case
+            fName' <- fileChooserGetFilter fChooser >>= \case
+                Just fFilter -> fileFilterGetName fFilter <&> \case
                     -- As we know that there are only two filters, the first
                     -- character of the filter offers a useful heuristic to
                     -- determine the file type
-                    ('A':_) -> writeFile (fName -<.> "alp") text
-                    ('H':_) -> writeFile (fName -<.> "hs" ) text
-                    _       -> writeFile  fName             text
-                Nothing     -> writeFile  fName             text
-            writeIORef (app ^. T.currentRuleName) (Just $ takeBaseName fName)
+                    ('A':_) -> fName -<.> "alp"
+                    ('H':_) -> fName -<.> "hs"
+                    _       -> fName
+                Nothing     -> return fName
+            writeCurrentRule app fName'
+
+writeCurrentRule :: T.Application -> FilePath -> IO ()
+writeCurrentRule app fName = do
+    (start, end) <- textBufferGetBounds (app ^. T.newRuleBuf)
+    text <- textBufferGetText @_ @String (app ^. T.newRuleBuf) start end True
+
+    writeFile fName text
+    writeIORef (app ^. T.currentRulePath) (Just fName)
 
 openRuleHandler :: T.Application -> IO ()
 openRuleHandler app =

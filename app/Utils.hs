@@ -35,8 +35,8 @@ modifyGeneration app f = do
     writeIORef generation g'
     labelSetText generationLbl $ show g'
 
-setCurrentRule :: T.Application -> Maybe String -> String -> T.Rule -> IO ()
-setCurrentRule app name text ruleType =
+setCurrentRule :: T.Application -> Maybe FilePath -> String -> T.Rule -> IO ()
+setCurrentRule app path text ruleType =
     parseRule text >>= \case
          Left err -> showMessageDialog (Just $ app ^. T.window)
                                        MessageError
@@ -53,7 +53,7 @@ setCurrentRule app name text ruleType =
                  writeIORef (app ^. T.existState) $ T.ExistState $
                      T.ExistState'{_ca, _currentPattern=(newPtn, g), _saved=Nothing}
              modifyGeneration app (const 0)
-             writeIORef (app ^. T.currentRuleName) name
+             writeIORef (app ^. T.currentRulePath) path
 
              -- Update the ListStore with the new states
              let curstatem = app ^. T.curstatem
