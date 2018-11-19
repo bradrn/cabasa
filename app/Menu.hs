@@ -45,7 +45,7 @@ addMenuHandlers app = do
     return ()
 
 savePattern :: T.Application -> IO ()
-savePattern app = void $
+savePattern app =
     readIORef (app ^. T.currentPatternPath) >>= \case
         Nothing   -> savePatternAs app
         Just path -> writeCurrentPattern app path
