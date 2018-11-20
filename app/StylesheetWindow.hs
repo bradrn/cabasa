@@ -1,7 +1,9 @@
-
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module StylesheetWindow (addStylesheetWindowHandlers) where
+
+import Data.IORef
 
 import CA
 import qualified CA.ALPACA.Stylesheets as SS
@@ -18,6 +20,7 @@ addStylesheetWindowHandlers app = do
 
     _ <- (app ^. T.editSheetWindowSetBtn) `on` buttonActivated $ setBtnHandler app
 
+    _ <- (app ^. T.saveSheetAs) `on` menuItemActivated $ saveSheetHandler app
     _ <- (app ^. T.saveSheetAs) `on` menuItemActivated $ saveSheetAsHandler app
     _ <- (app ^. T.openSheet) `on` menuItemActivated $ openSheetHandler app
     return ()
@@ -53,12 +56,21 @@ setBtnHandler app = do
             in st & T.state2color .~ state2color'
     widgetQueueDraw $ app ^. T.canvas
 
+saveSheetHandler :: T.Application -> IO ()
+saveSheetHandler app = readIORef (app ^. T.currentStylesheetPath) >>= \case
+    Nothing    -> saveSheetAsHandler app
+    Just fName -> writeCurrentSheet app fName
+
 saveSheetAsHandler :: T.Application -> IO ()
 saveSheetAsHandler app = void $
-    withFileDialogChoice (getCSSFileChooser app) FileChooserActionSave $ \_ fName -> do
-        (start, end) <- textBufferGetBounds (app ^. T.sheetBuf)
-        writeFile (fName -<.> "css") =<< textBufferGetText (app ^. T.sheetBuf) start end True
-  where
+    withFileDialogChoice (getCSSFileChooser app) FileChooserActionSave $
+        const $ writeCurrentSheet app
+
+writeCurrentSheet :: T.Application -> FilePath -> IO ()
+writeCurrentSheet app fName = do
+    (start, end) <- textBufferGetBounds (app ^. T.sheetBuf)
+    writeFile (fName -<.> "css") =<< textBufferGetText (app ^. T.sheetBuf) start end True
+    writeIORef (app ^. T.currentStylesheetPath) (Just fName)
 
 openSheetHandler :: T.Application -> IO ()
 openSheetHandler app = void $

@@ -73,6 +73,7 @@ data GuiObjects = GuiObjects
     , _openRule              :: MenuItem
     , _editSheetWindow       :: Window
     , _openSheet             :: MenuItem
+    , _saveSheet             :: MenuItem
     , _saveSheetAs           :: MenuItem
     , _sheetBuf              :: TextBuffer
     , _editSheetWindowSetBtn :: Button
@@ -102,30 +103,31 @@ data ExistState = forall t. Eq t => ExistState (ExistState' t)
 
 data IORefs = IORefs
   {
-    _existState         :: IORef ExistState
-  , _currentRulePath    :: IORef (Maybe FilePath)   -- The name of the current rule
-  , _currentPatternPath :: IORef (Maybe FilePath)   -- The path of the current pattern
-  , _generation         :: IORef Int                -- The current generation
-  , _currentMode        :: IORef InteractionMode    -- The current mode
+    _existState            :: IORef ExistState
+  , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
+  , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
+  , _currentStylesheetPath :: IORef (Maybe FilePath)   -- The path of the current pattern
+  , _generation            :: IORef Int                -- The current generation
+  , _currentMode           :: IORef InteractionMode    -- The current mode
 
     -- The current state the grid is displayed in: the x-coordinate of the
     -- leftmost column, the y-coordinate of the topmost row, and the width and
     -- height of each cell in pixels
-  , _pos                :: IORef Pos
+  , _pos                   :: IORef Pos
 
     -- The thread on which the evolution process is running. If it is paused or
     -- stopped this is equal to Nothing.
-  , _runThread          :: IORef (Maybe ThreadId)
+  , _runThread             :: IORef (Maybe ThreadId)
 
     -- If the mouse is pressed and drawing on the screen, this is the last point
     -- which the mouse was on. Note that this is relative to the top left corner
     -- of the screen, not the portion of the grid which is showing, so if the
     -- top left corner is showing the cell at (3, 8) but the mouse is also at
     -- this point then lastPoint is (0, 0) and not (3, 8).
-  , _lastPoint          :: IORef (Maybe CA.Point)
+  , _lastPoint             :: IORef (Maybe CA.Point)
 
     -- Settings
-  , _settings           :: IORef Settings
+  , _settings              :: IORef Settings
   }
 
 data Settings = Settings

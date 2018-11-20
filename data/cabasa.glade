@@ -34,6 +34,14 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="saveSheet">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Save</property>
+                        <property name="use_underline">True</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkMenuItem" id="saveSheetAs">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
