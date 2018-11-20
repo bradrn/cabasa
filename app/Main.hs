@@ -9,7 +9,7 @@
 {-# LANGUAGE TupleSections               #-}
 {-# LANGUAGE TypeApplications            #-}
 {-# LANGUAGE ViewPatterns                #-}
-{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+{-# OPTIONS_GHC -Werror=missing-fields -fno-warn-unused-do-bind #-}
 
 module Main (main) where
 
