@@ -60,6 +60,7 @@ data GuiObjects = GuiObjects
     , _reset                 :: Button
     , _canvas                :: DrawingArea
     , _generationLbl         :: Label
+    , _coordsLbl             :: Label
     , _drawopts              :: Box
     , _curstate              :: ComboBox
     , _curstatem             :: ListStore Int

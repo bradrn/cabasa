@@ -17,7 +17,13 @@ import qualified Types as T
 addCanvasHandlers :: T.Application -> IO ()
 addCanvasHandlers app = do
     let canvas' = app ^. T.canvas  -- because we use this field so much
-    widgetAddEvents canvas' [ButtonPressMask, ButtonReleaseMask, ButtonMotionMask, ScrollMask]
+    widgetAddEvents canvas'
+        [ ButtonPressMask
+        , ButtonReleaseMask
+        , ButtonMotionMask
+        , PointerMotionMask
+        , ScrollMask
+        ]
 
     _ <- canvas' `on` draw $ T.withState app $ \state -> do
         let renderFn = state ^. T.state2color
@@ -25,8 +31,8 @@ addCanvasHandlers app = do
         pos' <- liftIO $ readIORef (app ^. T.pos)
         renderUniverse canvas' currentPattern' pos'
 
-    _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler app
-    _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler app
+    _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler True app
+    _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler False app
     _ <- canvas' `on` buttonReleaseEvent $ liftIO $ writeIORef (app ^. T.lastPoint) Nothing $> True
 
     let modifyCellSize :: (Double -> Double) -> IO ()
@@ -51,17 +57,24 @@ addCanvasHandlers app = do
 
     return ()
 
-canvasMouseHandler :: HasCoordinates t => T.Application -> EventM t Bool
-canvasMouseHandler app = do
+canvasMouseHandler :: (HasCoordinates t, HasModifier t)
+                   => Bool  -- ^ Is this being called from a @buttonPressEvent@?
+                   -> T.Application -> EventM t Bool
+canvasMouseHandler fromButtonPress app = do
     (canvasX, canvasY) <- eventCoordinates
+    ms <- eventModifierMouse
+    let isButtonDown = fromButtonPress || (Button1 `elem` ms)
     liftIO $ do
         pos'@T.Pos{..} <- readIORef (app ^. T.pos)
         let viewX = floor $ canvasX / _cellWidth
             viewY = floor $ canvasY / _cellHeight
             viewP = Point viewX viewY
-            gridP = Point (_leftXCoord + viewX) (_topYCoord + viewY)
+
+            gridX = _leftXCoord + viewX
+            gridY = _topYCoord + viewY
+            gridP = Point gridX gridY
         lastPoint' <- readIORef (app ^. T.lastPoint)
-        when (maybe True (/= viewP) lastPoint') $ do
+        when (isButtonDown && (maybe True (/= viewP) lastPoint')) $ do
             readIORef (app ^. T.currentMode) >>= \case
                 T.DrawMode -> do
                     stnum <- comboBoxGetActiveIter (app ^. T.curstate) >>= \case
@@ -77,6 +90,8 @@ canvasMouseHandler app = do
                              & over T.topYCoord  (+ (lastY-viewY))
             writeIORef (app ^. T.lastPoint) $ Just viewP
             widgetQueueDraw (app ^. T.canvas)
+        labelSetText (app ^. T.coordsLbl) $
+            "(" ++ show (getCoord gridX) ++ "," ++ show (getCoord gridY) ++ ")"
     return True
 
 renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Render ()

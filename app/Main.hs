@@ -69,6 +69,7 @@ main = do
     _reset         <- builderGetObject builder castToButton      "reset"
     _canvas        <- builderGetObject builder castToDrawingArea "canvas"
     _generationLbl <- builderGetObject builder castToLabel       "generation"
+    _coordsLbl     <- builderGetObject builder castToLabel       "coords"
     _drawopts      <- builderGetObject builder castToBox         "drawopts"
     _curstate      <- builderGetObject builder castToComboBox    "curstate"
 
