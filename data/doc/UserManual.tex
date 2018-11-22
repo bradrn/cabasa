@@ -465,25 +465,24 @@ You can also use the \menu{File > Open} and \menu{File > Save As} menu items to 
 
 \noindent It is also possible to use the Haskell programming language to specify CAs.
 This functionality relies on a library created specifically for Cabasa.
-Its documentation can be found \href{haskell/index.html}{here}.
 
-A Haskell CA specification consists of a module containing a value \texttt{myCA ::\ \href{haskell/Hint-Interop.html\#t:CAVals}{CAVals}}.
-You should also import the \hreftt{haskell/CA.html}{CA} and \hreftt{haskell/Hint-Interop.html}{Hint.Interop} modules,
+A Haskell CA specification consists of a module containing a value \texttt{myCA :: CAVals}.
+You should also import the \tt{CA} and \tt{Hint.Interop} modules,
   as types and values from these modules are used to define a CA.
 With the exception of these provisos, a CA specification is a completely normal Haskell module,
   meaning that you can enable GHC extensions (e.g. \texttt{-XRecordWildCards} is particularly useful),
   import other modules (as long as they are in \texttt{base})
   and generally do anything you could normally do in a Haskell module.
 
-The \texttt{myCA ::\ \href{haskell/Hint-Interop.html\#t:CAVals}{CAVals}} value (mentioned above) is the central part of the CA definition.
-This value is an existentially quantified wrapper around a \hreftt{haskell/Hint-Interop.html\#t:CAVals-39-}{CAVals\textquotesingle} record,
+The \texttt{myCA :: CAVals} value (mentioned above) is the central part of the CA definition.
+This value is an existentially quantified wrapper around a \tt{CAVals\textquotesingle} record,
   which encapsulates the various pieces of information needed for Cabasa to use the CA.
 The details of these fields can be found in the documentation.
 
 An annotated example of a CA definition (in this case, Conway's Game of Life) can be found in Listing~\ref{lst:agol}.
-This is adapted from the example \href{haskell/CA.html}{here}.
+% This is adapted from the example \href{haskell/CA.html}{here}.
 However, this rule would usually be written as Listing~\ref{lst:ugol},
-  which uses the utility functions from \href{haskell/CA-Utils.html}{\texttt{CA.Utils}}.
+  which uses the utility functions from \texttt{CA.Utils}.
 
 \begin{listing}
 \begin{minted}{haskell}
@@ -581,7 +580,7 @@ conwayLife u =
             Dead ->  if aliveCount == 3          then Alive else Dead
             Alive -> if aliveCount `elem` [2, 3] then Alive else Dead
 \end{minted}
-\caption{Conway's Game of Life in Haskell using \hreftt{haskell/CA-Utils.html}{CA.Utils}}
+\caption{Conway's Game of Life in Haskell using \tt{CA.Utils}}
 \label{lst:ugol}
 \end{listing}
 
