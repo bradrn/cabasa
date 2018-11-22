@@ -120,15 +120,6 @@ getRuleFileChooser app filterType action = do
         Just T.ALPACA -> fileChooserSetFilter fChooser alpacaFilter
         Just T.Hint   -> fileChooserSetFilter fChooser haskellFilter
 
-    rulesDir <- getDataFileName "Rules/"
-    rulesDirExists <- doesDirectoryExist rulesDir
-    case action of
-        FileChooserActionSave -> void $ do
-            createDirectoryIfMissing True rulesDir
-            fileChooserSetCurrentFolder fChooser rulesDir
-        _ -> when rulesDirExists $ void $
-            fileChooserSetCurrentFolder fChooser rulesDir
-
     return fChooser
 
 -- Returns a file chooser preconfigured to save or open pattern files
@@ -144,15 +135,6 @@ getPatternFileChooser app action = do
     fileFilterSetName mCellFilter "MCell files (*.mcl)"
     fileFilterAddPattern mCellFilter "*.mcl"
     fileChooserAddFilter fChooser mCellFilter
-
-    rulesDir <- getDataFileName "Patterns/"
-    rulesDirExists <- doesDirectoryExist rulesDir
-    case action of
-        FileChooserActionSave -> void $ do
-            createDirectoryIfMissing True rulesDir
-            fileChooserSetCurrentFolder fChooser rulesDir
-        _ -> when rulesDirExists $ void $
-            fileChooserSetCurrentFolder fChooser rulesDir
 
     return fChooser
 
