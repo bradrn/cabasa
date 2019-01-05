@@ -16,7 +16,8 @@ Types necessary for communication between Hint and the application.
 -}
 module Hint.Interop where
 
-import CA
+import CA.Universe
+import Control.Monad.Random.Strict (StdGen, Rand)
 
 -- This datatype is split up into a record+existential wrapper so the state type
 -- can be hidden and exposed as needed
@@ -24,7 +25,7 @@ import CA
 -- | A record containing all the various bits and pieces of information
 -- which the application needs to know to load a new rule.
 data CAVals' t = CAVals'
-    { _rule :: Universe t -> Rand StdGen t           -- ^ The rule itself
+    { _rule :: Point -> Universe t -> Rand StdGen t  -- ^ The rule itself
     , _states :: [t]                                 -- ^ The states which can be selected from the state selection menu
     , _defaultPattern :: Universe t                  -- ^ The default pattern displayed before anything has been edited
     , _state2color :: t -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid

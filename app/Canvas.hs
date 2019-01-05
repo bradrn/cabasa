@@ -3,14 +3,17 @@
 
 module Canvas (addCanvasHandlers) where
 
+import Control.Monad (when)
+import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
+import Data.Functor (($>))
 import Data.IORef
 
 import Graphics.Rendering.Cairo hiding (clip)
 import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
 import Lens.Micro
 
-import CA hiding (pos)
+import CA.Universe
 import Utils
 import qualified Types as T
 

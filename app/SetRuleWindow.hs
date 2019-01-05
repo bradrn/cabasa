@@ -4,9 +4,10 @@
 
 module SetRuleWindow (addSetRuleWindowHandlers) where
 
+import Control.Monad (void)
+import Control.Monad.IO.Class (liftIO)
 import Data.IORef
 
-import CA
 import Graphics.UI.Gtk
 import Lens.Micro
 import System.FilePath

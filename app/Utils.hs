@@ -1,5 +1,7 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
@@ -7,15 +9,17 @@
 
 module Utils (module Utils, module ShowDialog) where
 
+import Control.Monad (forM_, when)
 import Data.IORef
 import Data.Maybe (isJust)
 import Data.Proxy
 import GHC.TypeLits (natVal)
 
-import CA
+import CA.Universe
 import CA.ALPACA
+import Control.Monad.Random.Strict (newStdGen, Rand, StdGen)
 import qualified Data.Finite as F
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (Point)
 import Hint
 import Lens.Micro
 import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
@@ -80,7 +84,7 @@ setCurrentRule app path text ruleType =
              T.Hint   -> (fmap . fmap . fmap) (,False) runHint
       where
         mkALPACAGrid (numcols, numrows)
-                     (AlpacaData{ rule = (rule :: StochRule Universe StdGen (F.Finite n))
+                     (AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n))
                                 , initConfig
                                 , stateData }) =
             let maxVal = natVal (Proxy @n)

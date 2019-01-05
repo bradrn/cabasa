@@ -7,7 +7,8 @@ import Control.Monad (forever)
 import Data.IORef
 import Data.Maybe (fromMaybe)
 
-import CA (runRand, evolve)
+import CA.Universe (evolveA)
+import Control.Monad.Random.Strict (runRand)
 import Data.Text (pack)
 import Graphics.UI.Gtk
 import Lens.Micro
@@ -72,6 +73,6 @@ runGen app postFn = do
     T.modifyState app $ \state ->
         let r = state ^. T.rule
             (g, s) = state ^. T.currentPattern
-        in state & T.currentPattern .~ runRand (evolve r g) s
+        in state & T.currentPattern .~ runRand (evolveA r g) s
     modifyGeneration app (+1)
     postFn (widgetQueueDraw $ app ^. T.canvas)

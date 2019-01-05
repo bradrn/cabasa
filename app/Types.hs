@@ -11,9 +11,12 @@
 module Types where
 
 import Control.Concurrent (ThreadId)
+import Control.Monad.IO.Class (liftIO)
 import Data.IORef
 import GHC.Generics
 
+import CA.Universe
+import Control.Monad.Random.Strict (MonadIO, StdGen)
 import Data.Aeson.TH (deriveJSON, defaultOptions, fieldLabelModifier)
 import Graphics.UI.Gtk hiding (Settings)
 import Language.Haskell.TH.Syntax (mkName)
@@ -21,7 +24,6 @@ import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
 import System.FilePath (takeBaseName)
 
-import CA hiding (pos)
 import Hint.Interop
 
 data Rule = ALPACA | Hint
@@ -125,7 +127,7 @@ data IORefs = IORefs
     -- of the screen, not the portion of the grid which is showing, so if the
     -- top left corner is showing the cell at (3, 8) but the mouse is also at
     -- this point then lastPoint is (0, 0) and not (3, 8).
-  , _lastPoint             :: IORef (Maybe CA.Point)
+  , _lastPoint             :: IORef (Maybe CA.Universe.Point)
 
     -- Settings
   , _settings              :: IORef Settings

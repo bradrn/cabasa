@@ -3,9 +3,10 @@
 
 module StylesheetWindow (addStylesheetWindowHandlers) where
 
+import Control.Monad (void)
+import Control.Monad.IO.Class (liftIO)
 import Data.IORef
 
-import CA
 import qualified CA.ALPACA.Stylesheets as SS
 import Graphics.UI.Gtk
 import Lens.Micro

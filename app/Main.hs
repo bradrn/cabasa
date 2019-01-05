@@ -14,14 +14,16 @@
 module Main (main) where
 
 import Control.Concurrent (ThreadId)
-import Control.Monad ((=<<))
+import Control.Monad ((=<<), replicateM)
 import Data.IORef
 
+import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
 
-import CA hiding (pos)
+import CA.Core (pureRule)
+import CA.Universe (fromList, Point)
 import CA.Utils (conwayLife)
 import Canvas
 import ControlButtons
@@ -117,7 +119,7 @@ main = do
     _existState <- do
         s <- getStdGen
         (numcols, numrows) <- getSettingFrom' T.gridSize _settings
-        let _rule = pure . conwayLife
+        let _rule = pureRule conwayLife
             _states = [False, True]
             _defaultPattern = fromList $ replicate numrows $ replicate numcols False
             _state2color st = if st then (0,0,0) else (1,1,1)
@@ -134,7 +136,7 @@ main = do
     _pos <- newIORef $
         T.Pos { _leftXCoord = 0, _topYCoord = 0, _cellWidth = 16, _cellHeight = 16 }
     _runThread             <- newIORef @(Maybe ThreadId) Nothing
-    _lastPoint             <- newIORef @(Maybe CA.Point) Nothing
+    _lastPoint             <- newIORef @(Maybe CA.Universe.Point) Nothing
     _generation            <- newIORef @Int 0
     _currentMode           <- newIORef T.DrawMode
 
