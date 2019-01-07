@@ -13,6 +13,8 @@
 
 \usepackage{minted}
 \setminted{frame=lines}
+% from https://tex.stackexchange.com/a/368971/155372
+\newenvironment{longlisting}{\captionsetup{type=listing}}{}
 
 \usepackage{hyperref}
 \usepackage{xcolor}
@@ -464,7 +466,7 @@ You can also use the \menu{File > Open} and \menu{File > Save As} menu items to 
 \vspace{2ex}
 
 \noindent It is also possible to use the Haskell programming language to specify CAs.
-This functionality relies on a library created specifically for Cabasa.
+This functionality relies on the cellular automata library which is embedded within Cabasa.
 
 A Haskell CA specification consists of a module containing a value \texttt{myCA :: CAVals}.
 You should also import the \texttt{CA} and \texttt{Hint.Interop} modules,
@@ -484,24 +486,25 @@ An annotated example of a CA definition (in this case, Conway's Game of Life) ca
 However, this rule would usually be written as Listing~\ref{lst:ugol},
   which uses the utility functions from \texttt{CA.Utils}.
 
-\begin{listing}
+\begin{longlisting}
 \begin{minted}{haskell}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE RecordWildCards  #-}
 
 module Life where
 
-import CA
+import CA.Universe
 import Hint.Interop
 
-data State = Alive | Dead
+data State = Alive | Dead deriving (Eq, Show)
 
 myCA :: CAVals
 myCA = CAVals $ CAVals' {..}
   where
-    -- This is the rule itself. It needs to return a Rand though, so the result
-    -- is fed to `pure'.
-    _rule = pure . conwayLife
+    -- This is the rule itself. It needs to return an effectful rule though,
+    -- so the function is fed to `pureRule'.
+    _rule = pureRule conwayLife
 
     -- This is the list of states which are shown in the state selection box;
     -- `Dead' is shown as state 0 and `Alive' is shown as state 1.
@@ -512,8 +515,8 @@ myCA = CAVals $ CAVals' {..}
 
     -- This is the function which determines what colour each state is displayed
     -- as.
-    _state2color Dead  = (0,0,0)
-    _state2color Alive = (1,1,1)
+    _state2color Dead  = (1,1,1)   -- white
+    _state2color Alive = (0,0,0)   -- black
 
     -- These two functions convert states to integers and vice versa. They are
     -- used to save and load patterns to and from a file.
@@ -522,16 +525,17 @@ myCA = CAVals $ CAVals' {..}
     _decodeInt 1 = Alive
     _decodeInt _ = Dead
 
-conwayLife :: Universe State -> State
-conwayLife u = case extract u of
-    Dead ->
-        if count (experiment mkNbhd u) == 3
-        then Alive
-        else Dead
-    Alive ->
-        if count (experiment mkNbhd u) `elem` [2, 3]
-        then Alive
-        else Dead
+    -- This function returns the name for each rule as a string.
+    _getName = Just . show
+
+conwayLife :: CARule Point State
+conwayLife p u =
+    let surrounds = fmap (flip peek u) $ mkNbhd p
+        numAlive  = count surrounds
+    in
+        case peek p u of
+            Dead  -> if numAlive == 3          then Alive else Dead
+            Alive -> if numAlive `elem` [2, 3] then Alive else Dead
   where
     mkNbhd (Point x y) = [ Point (x-1) (y-1)
                          , Point  x    (y-1)
@@ -543,27 +547,30 @@ conwayLife u = case extract u of
                          , Point (x+1) (y+1)
                          ]
 
- count = sum . fmap (\case { Alive -> 1 ; Dead -> 0 })
+count :: [State] -> Integer
+count = sum . fmap (\case { Alive -> 1 ; Dead -> 0 })
 \end{minted}
 \caption{Annotated Conway's Game of Life in Haskell}
 \label{lst:agol}
-\end{listing}
+\end{longlisting}
 
 \begin{listing}[!b]
 \begin{minted}{haskell}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards  #-}
 
 module Life where
 
-import CA
+import CA.Universe
+import CA.Utils hiding (conwayLife)
 import Hint.Interop
 
-data State = Alive | Dead deriving (Eq)
+data State = Alive | Dead deriving (Eq, Show)
 
 myCA :: CAVals
 myCA = CAVals $ CAVals' {..}
   where
-    _rule = pure . conwayLife
+    _rule = pureRule conwayLife
     _states = [Dead, Alive]
     _defaultPattern = fromList $ replicate 100 $ replicate 100 Dead
     _state2color Dead  = (1,1,1)
@@ -572,12 +579,13 @@ myCA = CAVals $ CAVals' {..}
     _encodeInt Alive = 1
     _decodeInt 1 = Alive
     _decodeInt _ = Dead
+    _getName = Just . show
 
-conwayLife :: Universe State -> State
-conwayLife u =
-    let aliveCount = count (==Alive) $ experiment (moore False) u in
-        case extract u of
-            Dead ->  if aliveCount == 3          then Alive else Dead
+conwayLife :: CARule Point State
+conwayLife p u =
+    let aliveCount = count (==Alive) $ experiment (moore False) p u in
+        case peek p u of
+            Dead  -> if aliveCount == 4          then Alive else Dead
             Alive -> if aliveCount `elem` [2, 3] then Alive else Dead
 \end{minted}
 \caption{Conway's Game of Life in Haskell using \texttt{CA.Utils}}
