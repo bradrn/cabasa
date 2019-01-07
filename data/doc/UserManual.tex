@@ -467,7 +467,7 @@ You can also use the \menu{File > Open} and \menu{File > Save As} menu items to 
 This functionality relies on a library created specifically for Cabasa.
 
 A Haskell CA specification consists of a module containing a value \texttt{myCA :: CAVals}.
-You should also import the \tt{CA} and \tt{Hint.Interop} modules,
+You should also import the \texttt{CA} and \texttt{Hint.Interop} modules,
   as types and values from these modules are used to define a CA.
 With the exception of these provisos, a CA specification is a completely normal Haskell module,
   meaning that you can enable GHC extensions (e.g. \texttt{-XRecordWildCards} is particularly useful),
@@ -475,7 +475,7 @@ With the exception of these provisos, a CA specification is a completely normal 
   and generally do anything you could normally do in a Haskell module.
 
 The \texttt{myCA :: CAVals} value (mentioned above) is the central part of the CA definition.
-This value is an existentially quantified wrapper around a \tt{CAVals\textquotesingle} record,
+This value is an existentially quantified wrapper around a \texttt{CAVals\textquotesingle} record,
   which encapsulates the various pieces of information needed for Cabasa to use the CA.
 The details of these fields can be found in the documentation.
 
@@ -580,7 +580,7 @@ conwayLife u =
             Dead ->  if aliveCount == 3          then Alive else Dead
             Alive -> if aliveCount `elem` [2, 3] then Alive else Dead
 \end{minted}
-\caption{Conway's Game of Life in Haskell using \tt{CA.Utils}}
+\caption{Conway's Game of Life in Haskell using \texttt{CA.Utils}}
 \label{lst:ugol}
 \end{listing}
 
