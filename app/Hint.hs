@@ -24,7 +24,7 @@ runHint ca =
         unsafeSetGhcOption "-Werror"
         loadModules [path]
         setTopLevelModules [moduleName]
-        setImports ["Prelude", "CA", "Data.Functor.Identity"]
+        setImports ["Prelude", "CA.Core", "Data.Functor.Identity"]
         interpret "myCA" (as :: CAVals)
 
 showError :: InterpreterError -> String
