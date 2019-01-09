@@ -5,6 +5,7 @@
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{textcomp}
+\usepackage{enumitem}
 
 \usepackage{libertine}
 \usepackage{libertinust1math}
@@ -467,25 +468,140 @@ You can also use the \menu{File > Open} and \menu{File > Save As} menu items to 
 \vspace{2ex}
 
 \noindent It is also possible to use the Haskell programming language to specify CAs.
-This functionality relies on the cellular automata library which is embedded within Cabasa.
+This functionality relies on the \texttt{cellular-automata} Haskell library, which is embedded within Cabasa.
 
-A Haskell CA specification consists of a module containing a value \texttt{myCA :: CAVals}.
-You should also import the \texttt{CA} and \texttt{Hint.Interop} modules,
-  as types and values from these modules are used to define a CA.
-With the exception of these provisos, a CA specification is a completely normal Haskell module,
-  meaning that you can enable GHC extensions (e.g. \texttt{-XRecordWildCards} is particularly useful),
-  import other modules (as long as they are in \texttt{base})
-  and generally do anything you could normally do in a Haskell module.
+\subsection{Theory}
+\label{sec:hsth}
 
-The \texttt{myCA :: CAVals} value (mentioned above) is the central part of the CA definition.
-This value is an existentially quantified wrapper around a \texttt{CAVals\textquotesingle} record,
-  which encapsulates the various pieces of information needed for Cabasa to use the CA.
-The details of these fields can be found in the documentation.
+Cabasa represents 2D cellular automata through a data type \texttt{Universe}.
+This data type takes one type parameter, which is the type used for cell states.
 
-An annotated example of a CA definition (in this case, Conway's Game of Life) can be found in Listing~\ref{lst:agol}.
+To get the value of a point in a \texttt{Universe}, the \texttt{peek} method can be used.
+This has the (slightly simplified) type signature \texttt{peek :: Point -> Universe a -> a}.
+\texttt{Point} itself is defined as \texttt{data Point = Point (Coord 'X) (Coord 'Y)},
+  where \texttt{'X} and \texttt{'Y} are phantom types,
+  and \texttt{Coord} is a simple newtype wrapper around \texttt{Int}.
+\texttt{Coord} has a \texttt{Num} instance,
+  so can be used as an overloaded numeric literal without requiring the constructor directly.
+Thus, to get the value of the universe \texttt{u} at, say, the point $(5, 10)$,
+  one would use the expression \texttt{peek (Point 5 10) u}.
+
+Now, how would one actually represent a CA evolution rule?
+The approach used here is to represent it as a function which is applied to every point in a \texttt{Universe};
+  in Cabasa, such a function is given the (again simplified) signature \texttt{Point -> Universe~a -> b}.
+The first argument to such a function is the point to which it is currently being applied;
+  the second, the \texttt{Universe} which it is currently being applied to.
+The returned value is the result of applying the rule at the given point.
+Thus, to create a rule which would, say, replace each point in a 2D universe with the value immediately above,
+  the following rule can be used:
+
+\begin{minted}{haskell}
+myRule :: Point -> Universe a -> a
+myRule curPoint uni =
+    let (Point x y) = curPoint
+        newPoint = Point x (y-1)   -- get the point immediately above
+    in
+        peek newPoint uni          -- get the value at newPoint
+\end{minted}
+
+Such a function can be applied to a whole \texttt{Universe} using the method
+  \texttt{evolve~:: (Point -> Universe a -> b) -> Universe a -> Universe b}.
+
+Now, the types actually used are slightly more general than the ones introduced above.
+Both \texttt{peek} and \texttt{evolve} are actually part of a larger \texttt{CA} typeclass:
+
+\begin{minted}{haskell}
+class Functor c => CA p c | c -> p where
+    peek   :: p -> c a -> a
+    evolve :: (p -> c a -> b) -> c a -> c b
+\end{minted}
+
+The \texttt{CA} typeclass is parameterised over two types:
+  the type of the grid \texttt{c},
+  but also the type of the coordinates \texttt{p}
+  (which also determines the \emph{topology} of the grid; that is, the way in which it is connected:
+    for example, \texttt{p = Int} for a 1D infinte strip, or \texttt{Point} for a 2D infinite universe).
+This allows more, different cellular automaton types to be considered;
+  the particular instance we were using above was \texttt{instance~CA Point Universe}.
+Using the above definition, it is possible to define the type of cellular automaton update rules
+  on a particular topology \texttt{p} and state type \texttt{a}:
+  \texttt{type CARule p a = forall c. CA p c => p -> c a -> a}.
+Thus, our example rule above could also be given the type \texttt{myRule :: CARule Point a}.
+Note that this new type is more polymorphic
+  in that it may be applied to \textit{any} CA with coordinate type \texttt{Point},
+  not only \texttt{Universe}.
+
+There is a further extension of \texttt{CARule} for applicative side-effects:
+  \texttt{type CARuleA t p a = forall c. CA p c => p -> c a -> t a}.
+This may be used to e.g.\ add randomness to a CA,
+  in that case by instantiating \texttt{t} as \texttt{Rand} (from the \texttt{MonadRandom} package).
+A \texttt{CARuleA} may be applied to a univere using the function
+  \texttt{evolveA :: (CA p c, Applicative t, Traversable c) => (p -> c a -> t a) -> c a -> t (c a)};
+  the effects are applied in Traversable order and are then collected.
+A \texttt{CARule} may be `upgraded' to a \texttt{CARuleA} using \texttt{pureRule :: Applicative t => CARule p a -> CARuleA t p a}.
+
+\subsection{Practise}
+\label{sec:hspr}
+
+Obviously, since Cabasa uses the 2D \texttt{Universe} type for its grid,
+  a rule of type \texttt{CARuleA Rand Point state\_type} should suffice for a CA evolution rule
+  (although the actual type used is the slightly more explicit
+    \texttt{Point -> Universe state\_type -> Rand StdGen state\_type}).
+However, Cabasa also requires several pieces of metadata, along with the rule itself,
+  such as what colours to use, how to encode and decode states to a file, etc.
+This metadata is stored --- along with the rule itself --- in a record, \texttt{CAVals' t}
+  (where \texttt{t} is the state type),
+  containing the following fields:
+
+\begin{description}[font=\normalfont\bfseries\ttfamily]
+\item[\_rule :: Point -> Universe t -> Rand StdGen t]
+  The rule function itself
+\item[\_states :: {[t]}]
+  A list of states to be shown in the state selection box (at the top of the window)
+\item[\_defaultPattern :: Universe t]
+  The pattern to be used by default
+\item[\_state2color :: t -> (Double, Double, Double)]
+  A function to specify a colour for each state.
+  Colours are specified as a tuple of \texttt{(red, green, blue)}.
+\item[\_encodeInt :: t -> Int]
+  Converts a state to and from an integer.
+  Used for saving patterns to a file.
+  Returned values should be kept between 1 and 255 (inclusive).
+\item[\_decodeInt :: Int -> t]
+  Opposite of \texttt{encodeInt} (above).
+  Used for reading a pattern from a file.
+  Aim to make this satisfy the law \texttt{(decodeInt . encodeInt) val == val};
+    however, note that this is not always entirely possible.
+\item[\_getName :: t -> Maybe String]
+  Given a state, get its (optional) name as a string.
+\end{description}
+
+Note that all of the fields detailed above use the state type \texttt{t}.
+However, this presents us with a problem:
+  the \texttt{CAVals'} record could use any type, including custom types, as a state type,
+  but user-written rule specification modules
+  are only loaded into Cabasa after Cabasa starts running,
+  preventing Cabasa from accessing these types!
+To solve this problem, rule definitions should not use \texttt{CAVals'} directly,
+  but instead should use the following existential wrapper:
+
+\mint{haskell}|data CAVals = forall t. Eq t => CAVals (CAVals' t)|
+
+In practise, this just translates into
+  wrapping an ordinary \texttt{CAVals'} value with the \texttt{CAVals} constructor.
+A rule specification module should then consist of
+  --- at the very minimum ---
+  one value, named \texttt{myCA}\footnotemark, with type \texttt{CAVals}.
+Putting this all together,
+  an annotated example of a CA definition (in this case, Conway's Game of Life) can be found in Listing~\ref{lst:agol}.
 % This is adapted from the example \href{haskell/CA.html}{here}.
 However, this rule would usually be written as Listing~\ref{lst:ugol},
   which uses the utility functions from \texttt{CA.Utils}.
+
+\footnotetext{%
+There's nothing particularly special about this name,
+    except that's where I've programmed Cabasa to look by default.
+In future versions, there will be a setting to change the location where Cabasa looks.}
 
 \begin{longlisting}
 \begin{minted}{haskell}
@@ -495,7 +611,11 @@ However, this rule would usually be written as Listing~\ref{lst:ugol},
 
 module Life where
 
+-- The module containing the Universe type and others,
+-- from the cellular-automata package
 import CA.Universe
+
+-- The module containing the CAVals and CAVals' records
 import Hint.Interop
 
 data State = Alive | Dead deriving (Eq, Show)
