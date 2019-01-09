@@ -1,15 +1,20 @@
 name:                cabasa
 version:             0.1.0.0
 synopsis:            A generic cellular automaton simulator.
--- description:
--- homepage:            https://github.com/githubuser/cabasa#readme
+description:
+    Cabasa is an application which allows the simulation of arbitrary 2D
+    cellular automata.  It allows cellular automata to be written in
+    either of Chris Pressey's ALPACA language or the Haskell programming
+    language, providing significant flexibility.
+category:            Graphics, Math, CA
+homepage:            https://github.com/bradrn/cabasa
 license:             MIT
 license-file:        LICENSE
 author:              Brad Neimann
 copyright:           2017 Brad Neimann
 build-type:          Simple
 cabal-version:       >=1.10
--- extra-source-files:  README.md
+extra-source-files:  README.md
 data-files:          data/cabasa.glade
                    , data/cabasa.css
                    , data/doc/UserManual.pdf
