@@ -6,7 +6,7 @@ description:
     cellular automata.  It allows cellular automata to be written in
     either of Chris Pressey's ALPACA language or the Haskell programming
     language, providing significant flexibility.
-category:            Graphics, Math, CA
+category:            Graphics, Math, Automata, GUI
 homepage:            https://github.com/bradrn/cabasa
 license:             MIT
 license-file:        LICENSE
