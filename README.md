@@ -14,3 +14,8 @@ In contrast to other CA simulation applications which only allow a limited set o
 - An interactive user interface based on the widely-used [Golly](http://golly.sourceforge.net/) CA simulator
   allowing patterns to be drawn easily.
 - Able to open and save patterns in the [MCell](http://psoup.math.wisc.edu/mcell/ca_files_formats.html#MCell) file format.
+
+## Installation
+
+As of this moment, there are no pre-build binaries to download; you will have to compile Cabasa from source.
+For more details on how to do this, see [`BUILDING.md`](BUILDING.md).
