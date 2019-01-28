@@ -40,8 +40,11 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- ../cellular-automata/cellular-automata
-- ../cellular-automata/cellular-automata-alpaca
+- git: https://github.com/bradrn/cellular-automata
+  commit: 17aee4db7ae8f79c9b0907c4e1b234d89ba65902
+  subdirs:
+  - cellular-automata
+  - cellular-automata-alpaca
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
