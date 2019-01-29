@@ -1,6 +1,0 @@
-state Dead
-  to Alive when 2 Alive and not (3 Alive);
-state Alive
-  to Decaying;
-state Decaying
-  to Dead.

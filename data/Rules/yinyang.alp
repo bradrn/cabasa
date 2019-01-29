@@ -1,7 +1,0 @@
-state Z " "
-  to S when 4 S;
-state S "x"
-  to T when 4 S;
-state T "."
-  to Z when 4 S,
-  to S when 3 T.
