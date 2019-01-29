@@ -4,7 +4,7 @@
 
 module Life where
 
-import CA
+import CA.Universe
 import CA.Utils
 import Hint.Interop
 
@@ -51,7 +51,7 @@ getdir (Ant c d) = Just $ case c of
 myCA :: CAVals
 myCA = CAVals $ CAVals' {..}
   where
-    _rule = pure . langton
+    _rule = (pure.) . langton
     _states = [State White, State Black] ++
               [Ant c d | d <- [LeftDir, RightDir, UpDir, DownDir], c <- [White, Black]]
     _defaultPattern = fromList $ replicate 100 $ replicate 100 (State White)
@@ -64,14 +64,15 @@ myCA = CAVals $ CAVals' {..}
     _decodeInt 0 = State White
     _decodeInt 1 = State Black
     _decodeInt n = Ant (int2color $ n `rem` 2) (int2dir $ n `quot` 2)
+    _getName = Just . show
 
-langton :: Universe State -> State
-langton u =
-    case (extract u) of
+langton :: Point -> Universe State -> State
+langton p u =
+    case (peek p u) of
         Ant White _ -> State Black
         Ant Black _ -> State White
-        State c | getdir (peeks (move UpDir   ) u) == Just DownDir  -> Ant c DownDir
-                | getdir (peeks (move DownDir ) u) == Just UpDir    -> Ant c UpDir
-                | getdir (peeks (move LeftDir ) u) == Just RightDir -> Ant c RightDir
-                | getdir (peeks (move RightDir) u) == Just LeftDir  -> Ant c LeftDir
+        State c | getdir (peek (move UpDir    p) u) == Just DownDir  -> Ant c DownDir
+                | getdir (peek (move DownDir  p) u) == Just UpDir    -> Ant c UpDir
+                | getdir (peek (move LeftDir  p) u) == Just RightDir -> Ant c RightDir
+                | getdir (peek (move RightDir p) u) == Just LeftDir  -> Ant c LeftDir
                 | otherwise -> State c

@@ -2,7 +2,7 @@
 
 module Life where
 
-import CA
+import CA.Universe
 import CA.Utils hiding (conwayLife)
 import Hint.Interop
 
@@ -11,7 +11,7 @@ data State = Alive | Dead deriving (Eq)
 myCA :: CAVals
 myCA = CAVals $ CAVals' {..}
   where
-    _rule = pure . conwayLife
+    _rule = (pure.) . conwayLife
     _states = [Dead, Alive]
     _defaultPattern = fromList $ replicate 100 $ replicate 100 Dead
     _state2color Dead  = (1,1,1)
@@ -20,10 +20,11 @@ myCA = CAVals $ CAVals' {..}
     _encodeInt Alive = 1
     _decodeInt 1 = Alive
     _decodeInt _ = Dead
+    _getName = const Nothing
 
-conwayLife :: Universe State -> State
-conwayLife u =
-    let aliveCount = count (==Alive) $ experiment (moore False) u in
-        case extract u of
+conwayLife :: Point -> Universe State -> State
+conwayLife p u =
+    let aliveCount = count (==Alive) $ experiment (moore False) p u in
+        case peek p u of
             Dead ->  if aliveCount == 3          then Alive else Dead
             Alive -> if aliveCount `elem` [2, 3] then Alive else Dead
