@@ -17,7 +17,7 @@ In contrast to other CA simulation applications which only allow a limited set o
 
 ## Installation
 
-As of this moment, there are no pre-build binaries to download; you will have to compile Cabasa from source.
+As of this moment, there are no pre-built binaries to download; you will have to compile Cabasa from source.
 For more details on how to do this, see [`BUILDING.md`](BUILDING.md).
 
 ## FAQs
