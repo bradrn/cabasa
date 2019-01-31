@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -38,15 +39,7 @@ addCanvasHandlers app = do
     _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler False app
     _ <- canvas' `on` buttonReleaseEvent $ liftIO $ writeIORef (app ^. T.lastPoint) Nothing $> True
 
-    let modifyCellSize :: (Double -> Double) -> IO ()
-        modifyCellSize f = do
-            modifyIORef (app ^. T.pos) $ over T.cellWidth  f
-                                       . over T.cellHeight f
-            widgetQueueDraw canvas'
-    _ <- canvas' `on` scrollEvent $ eventScrollDirection >>= \case
-        ScrollUp   -> liftIO $ modifyCellSize (*2) $> True
-        ScrollDown -> liftIO $ modifyCellSize (/2) $> True
-        _          -> return False
+    _ <- canvas' `on` scrollEvent $ zoom app
 
     _ <- (app ^. T.clearPattern) `on` menuItemActivated $ do
         modifyGeneration app (const 0)
@@ -60,22 +53,57 @@ addCanvasHandlers app = do
 
     return ()
 
+data MouseGridPos = MouseGridPos
+    { gridPos :: Point
+      -- ^ The (x,y) coordinates of the cursor position, in grid
+      -- coordinates, relative to the top-left of the grid
+    , viewPos :: Point
+      -- ^ Same as 'gridPos', but relative to the top-left of the
+      -- Cabasa grid view
+    } deriving (Show)
+
+getMousePos :: HasCoordinates t => T.Pos -> EventM t MouseGridPos
+getMousePos T.Pos{..} = do
+    (canvasX, canvasY) <- eventCoordinates
+    let viewX = floor $ canvasX / _cellWidth
+        viewY = floor $ canvasY / _cellHeight
+        viewPos = Point viewX viewY
+
+        gridX = _leftXCoord + viewX
+        gridY = _topYCoord + viewY
+        gridPos = Point gridX gridY
+    return MouseGridPos{..}
+
+modifyCellPos :: (Double -> Double)     -- ^ Modification to width & height
+              -> (Coord 'X -> Coord 'X) -- ^ Modification to left x coordinate
+              -> (Coord 'Y -> Coord 'Y) -- ^ Modification to top y coordinate
+              -> T.Application -> IO ()
+modifyCellPos fCell fX fY app = do
+    modifyIORef (app ^. T.pos) $ over T.cellWidth  fCell
+                               . over T.cellHeight fCell
+                               . over T.leftXCoord fX
+                               . over T.topYCoord  fY
+    widgetQueueDraw (app ^. T.canvas)
+
+zoom :: T.Application -> EventM EScroll Bool
+zoom app = do
+    MouseGridPos{viewPos = Point viewX viewY} <- getMousePos =<< liftIO (readIORef (app ^. T.pos))
+    eventScrollDirection >>= \case
+        ScrollUp   -> liftIO $ modifyCellPos (*2) (+ (viewX `quot` 2)) (+ (viewY `quot` 2)) app $> True
+        ScrollDown -> liftIO $ modifyCellPos (/2) (subtract viewX)     (subtract viewY)     app $> True
+        _          -> return False
+
 canvasMouseHandler :: (HasCoordinates t, HasModifier t)
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
                    -> T.Application -> EventM t Bool
 canvasMouseHandler fromButtonPress app = do
-    (canvasX, canvasY) <- eventCoordinates
     ms <- eventModifierMouse
     let isButtonDown = fromButtonPress || (Button1 `elem` ms)
+    pos' <- liftIO $ readIORef (app ^. T.pos)
+    MouseGridPos{ viewPos = viewP@(Point viewX viewY)
+                , gridPos = gridP@(Point gridX gridY)
+                } <- getMousePos pos'
     liftIO $ do
-        pos'@T.Pos{..} <- readIORef (app ^. T.pos)
-        let viewX = floor $ canvasX / _cellWidth
-            viewY = floor $ canvasY / _cellHeight
-            viewP = Point viewX viewY
-
-            gridX = _leftXCoord + viewX
-            gridY = _topYCoord + viewY
-            gridP = Point gridX gridY
         lastPoint' <- readIORef (app ^. T.lastPoint)
         when (isButtonDown && (maybe True (/= viewP) lastPoint')) $ do
             readIORef (app ^. T.currentMode) >>= \case
