@@ -575,7 +575,9 @@
                   <object class="GtkFlowBox">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="orientation">vertical</property>
+                    <property name="row_spacing">3</property>
+                    <property name="max_children_per_line">3</property>
+                    <property name="selection_mode">none</property>
                     <property name="activate_on_single_click">False</property>
                     <child>
                       <object class="GtkFlowBoxChild">
@@ -650,8 +652,6 @@
                     </child>
                     <child>
                       <object class="GtkFlowBoxChild">
-                        <property name="width_request">100</property>
-                        <property name="height_request">80</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <child>
