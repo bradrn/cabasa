@@ -50,6 +50,8 @@ data GuiObjects = GuiObjects
     , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
     , _setRule               :: MenuItem
+    , _goFaster              :: MenuItem
+    , _goSlower              :: MenuItem
     , _clearPattern          :: MenuItem
     , _drawMode              :: MenuItem
     , _moveMode              :: MenuItem
@@ -63,6 +65,7 @@ data GuiObjects = GuiObjects
     , _canvas                :: DrawingArea
     , _generationLbl         :: Label
     , _coordsLbl             :: Label
+    , _delayLbl              :: Label
     , _drawopts              :: Box
     , _curstate              :: ComboBox
     , _curstatem             :: ListStore Int
@@ -112,6 +115,7 @@ data IORefs = IORefs
   , _currentStylesheetPath :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _generation            :: IORef Int                -- The current generation
   , _currentMode           :: IORef InteractionMode    -- The current mode
+  , _delay                 :: IORef Int                -- The number of microseconds between evolutions
 
     -- The current state the grid is displayed in: the x-coordinate of the
     -- leftmost column, the y-coordinate of the topmost row, and the width and

@@ -56,6 +56,8 @@ main = do
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
+    _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
+    _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
     _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
     _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
@@ -72,6 +74,7 @@ main = do
     _canvas        <- builderGetObject builder castToDrawingArea "canvas"
     _generationLbl <- builderGetObject builder castToLabel       "generation"
     _coordsLbl     <- builderGetObject builder castToLabel       "coords"
+    _delayLbl      <- builderGetObject builder castToLabel       "delay"
     _drawopts      <- builderGetObject builder castToBox         "drawopts"
     _curstate      <- builderGetObject builder castToComboBox    "curstate"
 
@@ -138,6 +141,7 @@ main = do
     _runThread             <- newIORef @(Maybe ThreadId) Nothing
     _lastPoint             <- newIORef @(Maybe CA.Universe.Point) Nothing
     _generation            <- newIORef @Int 0
+    _delay                 <- newIORef @Int 100000
     _currentMode           <- newIORef T.DrawMode
 
     let ioRefs = T.IORefs{..}

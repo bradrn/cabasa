@@ -38,11 +38,23 @@ addMenuHandlers app = do
     _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)
 
+    let when' p f = \x -> if p x then f x else x
+
+    _ <- (app ^. T.goFaster) `on` menuItemActivated $ modifyDelay app (when' (>50) (`quot` 10))
+    _ <- (app ^. T.goSlower) `on` menuItemActivated $ modifyDelay app (* 10)
+
     _ <- (app ^. T.runSettings) `on` menuItemActivated $ showSettingsDialog app
 
     _ <- (app ^. T.quit) `on` menuItemActivated $ mainQuit
 
     return ()
+
+modifyDelay :: T.Application -> (Int -> Int) -> IO ()
+modifyDelay app fn = do
+    old <- readIORef (app ^. T.delay)
+    let new = fn old
+    writeIORef (app ^. T.delay) new
+    labelSetText (app ^. T.delayLbl) $ show new
 
 savePattern :: T.Application -> IO ()
 savePattern app =

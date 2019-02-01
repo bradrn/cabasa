@@ -31,7 +31,9 @@ runButtonHandler app = readIORef (app ^. T.runThread) >>= \case
         imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") IconSizeButton
     Nothing -> do
         savePattern app
-        t <- forkIO $ forever $ runGen app postGUISync >> threadDelay 100000
+        t <- forkIO $ forever $
+            runGen app postGUISync
+            >> readIORef (app ^. T.delay) >>= threadDelay
         writeIORef (app ^. T.runThread) $ Just t
         imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") IconSizeButton
 
