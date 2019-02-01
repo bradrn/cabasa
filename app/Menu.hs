@@ -40,7 +40,7 @@ addMenuHandlers app = do
 
     let when' p f = \x -> if p x then f x else x
 
-    _ <- (app ^. T.goFaster) `on` menuItemActivated $ modifyDelay app (when' (>50) (`quot` 10))
+    _ <- (app ^. T.goFaster) `on` menuItemActivated $ modifyDelay app (when' (>100) (`quot` 10))
     _ <- (app ^. T.goSlower) `on` menuItemActivated $ modifyDelay app (* 10)
 
     _ <- (app ^. T.runSettings) `on` menuItemActivated $ showSettingsDialog app
