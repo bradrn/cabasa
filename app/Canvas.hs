@@ -32,8 +32,9 @@ addCanvasHandlers app = do
     _ <- canvas' `on` draw $ T.withState app $ \state -> do
         let renderFn = state ^. T.state2color
             currentPattern' = renderFn <$> state ^. T.currentPattern . _1
-        pos' <- liftIO $ readIORef (app ^. T.pos)
-        renderUniverse canvas' currentPattern' pos'
+        pos'       <- liftIO $ readIORef (app ^. T.pos)
+        selection' <- liftIO $ readIORef (app ^. T.selection)
+        renderUniverse canvas' currentPattern' pos' selection'
 
     _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler True app
     _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler False app
@@ -119,14 +120,23 @@ canvasMouseHandler fromButtonPress app = do
                     Just (Point lastX lastY) -> writeIORef (app ^. T.pos) $
                         pos' & over T.leftXCoord (+ (lastX-viewX))
                              & over T.topYCoord  (+ (lastY-viewY))
+                T.SelectMode -> readIORef (app ^. T.selection) >>= \case
+                    Nothing ->
+                        writeIORef (app ^. T.selection) (Just (gridP, gridP))
+                    Just (p1, _) ->
+                        writeIORef (app ^. T.selection) $
+                            -- Restart selection if mouse was lifted, else continue it
+                            case lastPoint' of
+                                Nothing -> Nothing
+                                Just _  -> Just (p1, gridP)
             writeIORef (app ^. T.lastPoint) $ Just viewP
             widgetQueueDraw (app ^. T.canvas)
         labelSetText (app ^. T.coordsLbl) $
             "(" ++ show (getCoord gridX) ++ "," ++ show (getCoord gridY) ++ ")"
     return True
 
-renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Render ()
-renderUniverse canvas grid T.Pos{..} = do
+renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Maybe (Point, Point) -> Render ()
+renderUniverse canvas grid T.Pos{..} selection = do
 {-
 This is a bit complex. The universe is finite, so it is possible to move the
 viewport to a place which is outside the universe. In this case, only part of
@@ -212,8 +222,22 @@ represented by actualBs and the various Coord values.
             moveTo xCoord yCoordTop
             lineTo xCoord yCoordBottom
             stroke
+
+    maybeM selection $ \(Point x1 y1, Point x2 y2) -> do
+        let x1' = __ (getCoord (x1 - _leftXCoord)) * _cellWidth
+            y1' = __ (getCoord (y1 - _topYCoord))  * _cellHeight
+            x2' = __ (getCoord (x2 - _leftXCoord)) * _cellWidth
+            y2' = __ (getCoord (y2 - _topYCoord))  * _cellHeight
+        -- Draw green rectangle for selection
+        setSourceRGBA 0 1 0 0.5
+        rectangle x1' y1' (x2'-x1') (y2'-y1')
+        fill
   where
     getOpacity n = if n `mod` 10 == 0 then 0.3 else 0.15
+
+    maybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
+    maybeM Nothing  _ = pure ()
+    maybeM (Just a) c = c a
 
 -- Short, type-restricted version of fromIntegral for convenience
 __ :: Integral a => a -> Double

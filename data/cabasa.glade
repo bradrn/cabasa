@@ -436,6 +436,16 @@
                                 <accelerator key="m" signal="activate"/>
                               </object>
                             </child>
+                            <child>
+                              <object class="GtkRadioMenuItem" id="selectMode">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="label" translatable="yes">Select</property>
+                                <property name="use_underline">True</property>
+                                <property name="draw_as_radio">True</property>
+                                <accelerator key="s" signal="activate"/>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>

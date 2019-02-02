@@ -27,6 +27,8 @@ addMenuHandlers app = do
         writeIORef (app ^. T.currentMode) T.DrawMode >> widgetSetSensitive (app ^. T.drawopts) True
     _ <- (app ^. T.moveMode) `on` menuItemActivated $
         writeIORef (app ^. T.currentMode) T.MoveMode >> widgetSetSensitive (app ^. T.drawopts) False
+    _ <- (app ^. T.selectMode) `on` menuItemActivated $
+        writeIORef (app ^. T.currentMode) T.SelectMode >> widgetSetSensitive (app ^. T.drawopts) False
 
     _ <- (app ^. T.savePattern)   `on` menuItemActivated $ savePattern app
     _ <- (app ^. T.savePatternAs) `on` menuItemActivated $ savePatternAs app

@@ -28,7 +28,7 @@ import Hint.Interop
 
 data Rule = ALPACA | Hint
 
-data InteractionMode = DrawMode | MoveMode
+data InteractionMode = DrawMode | MoveMode | SelectMode
 
 data Application = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.
@@ -55,6 +55,7 @@ data GuiObjects = GuiObjects
     , _clearPattern          :: MenuItem
     , _drawMode              :: MenuItem
     , _moveMode              :: MenuItem
+    , _selectMode            :: MenuItem
     , _editSheet             :: MenuItem
     , _about                 :: MenuItem
     , _uman                  :: MenuItem
@@ -132,6 +133,13 @@ data IORefs = IORefs
     -- top left corner is showing the cell at (3, 8) but the mouse is also at
     -- this point then lastPoint is (0, 0) and not (3, 8).
   , _lastPoint             :: IORef (Maybe CA.Universe.Point)
+
+    -- The current selection, if selection mode is enabled. Comprised of a tuple
+    -- of two corners of the selection - exactly which corners these are is not
+    -- fixed and is based on user input, with the tuple being the (first,last)
+    -- point selected. Unlike '_lastPoint' this is relative to the grid, not the
+    -- screen.
+  , _selection             :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
 
     -- Settings
   , _settings              :: IORef Settings

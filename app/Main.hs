@@ -61,6 +61,7 @@ main = do
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
     _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
     _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
+    _selectMode    <- builderGetObject builder castToMenuItem "selectMode"
     _editSheet     <- builderGetObject builder castToMenuItem "editSheet"
     _about         <- builderGetObject builder castToMenuItem "about"
     _uman          <- builderGetObject builder castToMenuItem "uman"
@@ -140,6 +141,7 @@ main = do
         T.Pos { _leftXCoord = 0, _topYCoord = 0, _cellWidth = 16, _cellHeight = 16 }
     _runThread             <- newIORef @(Maybe ThreadId) Nothing
     _lastPoint             <- newIORef @(Maybe CA.Universe.Point) Nothing
+    _selection             <- newIORef Nothing
     _generation            <- newIORef @Int 0
     _delay                 <- newIORef @Int 100000
     _currentMode           <- newIORef T.DrawMode
