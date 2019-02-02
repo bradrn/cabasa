@@ -224,10 +224,11 @@ represented by actualBs and the various Coord values.
             stroke
 
     maybeM selection $ \(Point x1 y1, Point x2 y2) -> do
-        let x1' = __ (getCoord (x1 - _leftXCoord)) * _cellWidth
-            y1' = __ (getCoord (y1 - _topYCoord))  * _cellHeight
-            x2' = __ (getCoord (x2 - _leftXCoord)) * _cellWidth
-            y2' = __ (getCoord (y2 - _topYCoord))  * _cellHeight
+        let (gw,gh) = size grid
+            x1' = __ (getCoord (clipIn (0,gw) x1 - _leftXCoord)) * _cellWidth
+            y1' = __ (getCoord (clipIn (0,gh) y1 - _topYCoord))  * _cellHeight
+            x2' = __ (getCoord (clipIn (0,gw) x2 - _leftXCoord)) * _cellWidth
+            y2' = __ (getCoord (clipIn (0,gh) y2 - _topYCoord))  * _cellHeight
         -- Draw green rectangle for selection
         setSourceRGBA 0 1 0 0.5
         rectangle x1' y1' (x2'-x1') (y2'-y1')
@@ -238,6 +239,12 @@ represented by actualBs and the various Coord values.
     maybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
     maybeM Nothing  _ = pure ()
     maybeM (Just a) c = c a
+
+    -- Clip the second parameter to within the range of the first.
+    clipIn :: Ord n => (n,n) -> n -> n
+    clipIn (l,h) n | l > n = l
+                   | n > h = h
+                   | otherwise = n
 
 -- Short, type-restricted version of fromIntegral for convenience
 __ :: Integral a => a -> Double
