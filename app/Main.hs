@@ -55,6 +55,7 @@ main = do
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
+    _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
     _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
@@ -133,6 +134,7 @@ main = do
             _getName = const Nothing
             _currentPattern = (_defaultPattern, s)
             _saved = Nothing
+            _clipboardContents = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
     _currentPatternPath    <- newIORef @(Maybe String) Nothing
     _currentRulePath       <- newIORef @(Maybe String) Nothing

@@ -15,6 +15,8 @@ import System.FilePath ((</>), takeExtension, takeBaseName, (-<.>))
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
+import CA.Types (Point(Point))
+import CA.Universe (fromList, clipInside, Bounds(..))
 import qualified Utils as U
 import Settings (getSetting')
 import SettingsDialog
@@ -37,6 +39,8 @@ addMenuHandlers app = do
     _ <- (app ^. T.about) `on` menuItemActivated $ showAboutDialog app
     _ <- (app ^. T.uman)  `on` menuItemActivated $ showUserManual
 
+    _ <- (app ^. T.copyCanvas) `on` menuItemActivated $ copyCanvas app
+
     _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)
 
@@ -57,6 +61,20 @@ modifyDelay app fn = do
     let new = fn old
     writeIORef (app ^. T.delay) new
     labelSetText (app ^. T.delayLbl) $ show new
+
+copyCanvas :: T.Application -> IO ()
+copyCanvas app = readIORef (app ^. T.selection) >>= \case
+    Nothing -> pure ()    -- Can't copy when there's no selection!
+    Just (Point x1 y1, Point x2 y2) ->
+        T.modifyState app $ \state ->
+            let (grid, _) = state ^. T.currentPattern
+                (_, vals) = clipInside grid Bounds
+                    { boundsLeft   = min x1 x2
+                    , boundsRight  = max x1 x2
+                    , boundsTop    = min y1 y2
+                    , boundsBottom = max y1 y2
+                    }
+            in state & T.clipboardContents .~ (Just $ fromList vals)
 
 savePattern :: T.Application -> IO ()
 savePattern app =

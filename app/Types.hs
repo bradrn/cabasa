@@ -49,6 +49,7 @@ data GuiObjects = GuiObjects
     , _openPattern           :: MenuItem
     , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
+    , _copyCanvas            :: MenuItem
     , _setRule               :: MenuItem
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
@@ -105,6 +106,11 @@ data ExistState' t = ExistState'
     , _currentPattern  :: (Universe t, StdGen)
     -- The grid which is to be restored when the 'reset' button is pressed.
     , _saved           :: Maybe (Universe t, Pos)
+
+    -- The current contents of the clipboard, if any. GTK does provide
+    -- an interface to the OS clipboard, but it's fairly tricky to
+    -- use, so we just emulate our own clipboard.
+    , _clipboardContents :: Maybe (Universe t)
     }
 data ExistState = forall t. Eq t => ExistState (ExistState' t)
 
