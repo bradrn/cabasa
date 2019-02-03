@@ -55,7 +55,7 @@ setCurrentRule app path text ruleType =
                      (oldPtn, _) = old ^. T.currentPattern
                      newPtn = (decFn . encFn) <$> oldPtn
                  writeIORef (app ^. T.existState) $ T.ExistState $
-                     T.ExistState'{_ca, _currentPattern=(newPtn, g), _saved=Nothing}
+                     T.ExistState'{_ca, _currentPattern=(newPtn, g), _saved=Nothing, _clipboardContents=Nothing}
              modifyGeneration app (const 0)
              writeIORef (app ^. T.currentRulePath) path
 
