@@ -56,6 +56,7 @@ main = do
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
     _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
+    _pasteToCanvas <- builderGetObject builder castToMenuItem "pasteToCanvas"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
     _goSlower      <- builderGetObject builder castToMenuItem "goSlower"

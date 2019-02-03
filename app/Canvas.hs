@@ -6,10 +6,12 @@ module Canvas (addCanvasHandlers) where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Data.Bifunctor (first)
 import Data.Foldable (for_)
 import Data.Functor (($>))
 import Data.IORef
 
+import Data.Array (array, assocs, bounds)
 import Graphics.Rendering.Cairo hiding (clip)
 import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
 import Lens.Micro
@@ -129,11 +131,32 @@ canvasMouseHandler fromButtonPress app = do
                             case lastPoint' of
                                 Nothing -> Nothing
                                 Just _  -> Just (p1, gridP)
+                T.PastePendingMode ->
+                    T.modifyState app $ \state ->
+                        case state ^. T.clipboardContents of
+                            Nothing -> state
+                            Just c -> state & (T.currentPattern . _1) %~ mergeAtPoint gridP c
             writeIORef (app ^. T.lastPoint) $ Just viewP
             widgetQueueDraw (app ^. T.canvas)
         labelSetText (app ^. T.coordsLbl) $
             "(" ++ show (getCoord gridX) ++ "," ++ show (getCoord gridY) ++ ")"
     return True
+
+-- | Overwrite all points of one 'Universe' with another, displacing
+-- the new 'Universe' to a particular 'Point'.
+mergeAtPoint :: Point       -- ^ Where to start overwriting
+             -> Universe a  -- ^ The new universe to overwrite with
+             -> Universe a  -- ^ The universe to be overwritten
+             -> Universe a  -- ^ Result
+mergeAtPoint (Point x y) (Universe new) (Universe old) =
+    let newAscs = (assocs new) <&> first (\(Point x' y') -> Point (x'+x) (y'+y))
+        oldAscs = assocs old
+        oldBs   = bounds old
+    in Universe $ array oldBs $
+        flip fmap oldAscs $ \a@(i, _val) ->
+            case lookup i newAscs of
+                Nothing -> a
+                Just val' -> (i, val')
 
 renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Maybe (Point, Point) -> Render ()
 renderUniverse canvas grid T.Pos{..} selection = do

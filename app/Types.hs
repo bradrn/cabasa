@@ -28,7 +28,7 @@ import Hint.Interop
 
 data Rule = ALPACA | Hint
 
-data InteractionMode = DrawMode | MoveMode | SelectMode
+data InteractionMode = DrawMode | MoveMode | SelectMode | PastePendingMode
 
 data Application = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.
@@ -50,6 +50,7 @@ data GuiObjects = GuiObjects
     , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
     , _copyCanvas            :: MenuItem
+    , _pasteToCanvas         :: MenuItem
     , _setRule               :: MenuItem
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
