@@ -217,10 +217,10 @@ represented by actualBs and the various Coord values.
         bottomRowCoord = boundsBottom actualBs - boundsTop viewportBs + 1
 
 
-    for_ (zip [fromIntegral leftColCoord..] clipped) $ \(i, row) ->
-        for_ (zip [fromIntegral topRowCoord..] row) $ \(j, (r, g, b)) -> do
+    for_ (zip [fromIntegral topRowCoord..] clipped) $ \(i, row) ->
+        for_ (zip [fromIntegral leftColCoord..] row) $ \(j, (r, g, b)) -> do
             setSourceRGB r g b
-            rectangle (i*_cellWidth) (j*_cellHeight) _cellWidth _cellHeight
+            rectangle (j*_cellWidth) (i*_cellHeight) _cellWidth _cellHeight
             fill
 
     setLineWidth 1.5
