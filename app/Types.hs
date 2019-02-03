@@ -28,7 +28,7 @@ import Hint.Interop
 
 data Rule = ALPACA | Hint
 
-data InteractionMode = DrawMode | MoveMode | SelectMode | PastePendingMode
+data InteractionMode = DrawMode | MoveMode | SelectMode | PastePendingMode InteractionMode
 
 data Application = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.

@@ -41,7 +41,7 @@ addMenuHandlers app = do
 
     _ <- (app ^. T.copyCanvas)    `on` menuItemActivated $ copyCanvas app
     _ <- (app ^. T.pasteToCanvas) `on` menuItemActivated $
-        writeIORef (app ^. T.currentMode) T.PastePendingMode
+        modifyIORef (app ^. T.currentMode) T.PastePendingMode
 
     _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)

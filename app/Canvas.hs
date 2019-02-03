@@ -131,11 +131,12 @@ canvasMouseHandler fromButtonPress app = do
                             case lastPoint' of
                                 Nothing -> Nothing
                                 Just _  -> Just (p1, gridP)
-                T.PastePendingMode ->
+                T.PastePendingMode oldMode -> do
                     T.modifyState app $ \state ->
                         case state ^. T.clipboardContents of
                             Nothing -> state
                             Just c -> state & (T.currentPattern . _1) %~ mergeAtPoint gridP c
+                    writeIORef (app ^. T.currentMode) oldMode
             writeIORef (app ^. T.lastPoint) $ Just viewP
             widgetQueueDraw (app ^. T.canvas)
         labelSetText (app ^. T.coordsLbl) $
