@@ -28,7 +28,16 @@ import Hint.Interop
 
 data Rule = ALPACA | Hint
 
-data InteractionMode = DrawMode | MoveMode | SelectMode | PastePendingMode InteractionMode
+data InteractionMode
+    = DrawMode
+    -- ^ When the user click/drags, draw on the screen
+    | MoveMode
+    -- ^ When the user click/drags, move the grid
+    | SelectMode
+    -- ^ When the user click/drags, draw a selection box
+    | PastePendingMode InteractionMode
+    -- ^ When the user clicks, paste the clipboard contents, then
+    -- restore the previous mode (stored as the parameter)
 
 data Application = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.
