@@ -61,6 +61,7 @@ main = do
     _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
     _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
+    _clearSelection <- builderGetObject builder castToMenuItem "clearSelection"
     _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
     _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
     _selectMode    <- builderGetObject builder castToMenuItem "selectMode"

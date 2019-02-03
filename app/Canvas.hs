@@ -54,6 +54,9 @@ addCanvasHandlers app = do
                            & (T.currentPattern . _1) .~ defGrid
         widgetQueueDraw canvas'
 
+    _ <- (app ^. T.clearSelection) `on` menuItemActivated $
+        writeIORef (app ^. T.selection) Nothing >> widgetQueueDraw canvas'
+
     return ()
 
 data MouseGridPos = MouseGridPos

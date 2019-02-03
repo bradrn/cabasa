@@ -64,6 +64,7 @@ data GuiObjects = GuiObjects
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
     , _clearPattern          :: MenuItem
+    , _clearSelection        :: MenuItem
     , _drawMode              :: MenuItem
     , _moveMode              :: MenuItem
     , _selectMode            :: MenuItem
