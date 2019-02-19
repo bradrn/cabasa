@@ -36,7 +36,8 @@ addCanvasHandlers app = do
             currentPattern' = renderFn <$> state ^. T.currentPattern . _1
         pos'       <- liftIO $ readIORef (app ^. T.pos)
         selection' <- liftIO $ readIORef (app ^. T.selection)
-        renderUniverse canvas' currentPattern' pos' selection'
+        pasteSelectionOverlay' <- liftIO $ readIORef (app ^. T.pasteSelectionOverlay)
+        renderUniverse canvas' currentPattern' pos' selection' pasteSelectionOverlay'
 
     _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler True app
     _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler False app
@@ -109,10 +110,11 @@ canvasMouseHandler fromButtonPress app = do
     MouseGridPos{ viewPos = viewP@(Point viewX viewY)
                 , gridPos = gridP@(Point gridX gridY)
                 } <- getMousePos pos'
+    curMode <- liftIO $ readIORef (app ^. T.currentMode)
     liftIO $ do
         lastPoint' <- readIORef (app ^. T.lastPoint)
-        when (isButtonDown && (maybe True (/= viewP) lastPoint')) $ do
-            readIORef (app ^. T.currentMode) >>= \case
+        if (isButtonDown && (maybe True (/= viewP) lastPoint')) then do
+            case curMode of
                 T.DrawMode -> do
                     stnum <- comboBoxGetActiveIter (app ^. T.curstate) >>= \case
                         Nothing -> return 0
@@ -139,9 +141,22 @@ canvasMouseHandler fromButtonPress app = do
                         case state ^. T.clipboardContents of
                             Nothing -> state
                             Just c -> state & (T.currentPattern . _1) %~ mergeAtPoint gridP c
+                    writeIORef (app ^. T.pasteSelectionOverlay) Nothing
                     writeIORef (app ^. T.currentMode) oldMode
             writeIORef (app ^. T.lastPoint) $ Just viewP
             widgetQueueDraw (app ^. T.canvas)
+        else
+            case curMode of
+                T.PastePendingMode _ ->
+                    T.withState app $ \state ->
+                        case (state ^. T.clipboardContents) of
+                            Nothing -> pure ()
+                            Just ccs -> do
+                                let (w, h) = size ccs
+                                writeIORef (app ^. T.pasteSelectionOverlay) $
+                                    Just (gridP, Point (gridX+w) (gridY+h))
+                                widgetQueueDraw (app ^. T.canvas)
+                _ -> return ()
         labelSetText (app ^. T.coordsLbl) $
             "(" ++ show (getCoord gridX) ++ "," ++ show (getCoord gridY) ++ ")"
     return True
@@ -162,8 +177,14 @@ mergeAtPoint (Point x y) (Universe new) (Universe old) =
                 Nothing -> a
                 Just val' -> (i, val')
 
-renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Maybe (Point, Point) -> Render ()
-renderUniverse canvas grid T.Pos{..} selection = do
+renderUniverse :: WidgetClass widget
+               => widget
+               -> Universe (Double, Double, Double)
+               -> T.Pos
+               -> Maybe (Point, Point)
+               -> Maybe (Point, Point)
+               -> Render ()
+renderUniverse canvas grid T.Pos{..} selection pasteSelection = do
 {-
 This is a bit complex. The universe is finite, so it is possible to move the
 viewport to a place which is outside the universe. In this case, only part of
@@ -250,28 +271,32 @@ represented by actualBs and the various Coord values.
             lineTo xCoord yCoordBottom
             stroke
 
-    maybeM selection $ \(Point x1 y1, Point x2 y2) -> do
-        let (gw,gh) = size grid
-            x1' = __ (getCoord (clipIn (0,gw) x1 - _leftXCoord)) * _cellWidth
-            y1' = __ (getCoord (clipIn (0,gh) y1 - _topYCoord))  * _cellHeight
-            x2' = __ (getCoord (clipIn (0,gw) x2 - _leftXCoord)) * _cellWidth
-            y2' = __ (getCoord (clipIn (0,gh) y2 - _topYCoord))  * _cellHeight
-        -- Draw green rectangle for selection
-        setSourceRGBA 0 1 0 0.5
-        rectangle x1' y1' (x2'-x1') (y2'-y1')
-        fill
+    drawOverlay selection (0,1,0)
+    drawOverlay pasteSelection (0.5,0.5,0)
   where
     getOpacity n = if n `mod` 10 == 0 then 0.3 else 0.15
-
-    maybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
-    maybeM Nothing  _ = pure ()
-    maybeM (Just a) c = c a
 
     -- Clip the second parameter to within the range of the first.
     clipIn :: Ord n => (n,n) -> n -> n
     clipIn (l,h) n | l > n = l
                    | n > h = h
                    | otherwise = n
+
+    drawOverlay overlay (r,g,b) =
+        maybeM overlay $ \(Point x1 y1, Point x2 y2) -> do
+            let (gw,gh) = size grid
+                x1' = __ (getCoord (clipIn (0,gw) x1 - _leftXCoord)) * _cellWidth
+                y1' = __ (getCoord (clipIn (0,gh) y1 - _topYCoord))  * _cellHeight
+                x2' = __ (getCoord (clipIn (0,gw) x2 - _leftXCoord)) * _cellWidth
+                y2' = __ (getCoord (clipIn (0,gh) y2 - _topYCoord))  * _cellHeight
+            -- Draw green rectangle for selection
+            setSourceRGBA r g b 0.5
+            rectangle x1' y1' (x2'-x1') (y2'-y1')
+            fill
+      where
+        maybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
+        maybeM Nothing  _ = pure ()
+        maybeM (Just a) c = c a
 
 -- Short, type-restricted version of fromIntegral for convenience
 __ :: Integral a => a -> Double

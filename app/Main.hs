@@ -146,6 +146,7 @@ main = do
     _runThread             <- newIORef @(Maybe ThreadId) Nothing
     _lastPoint             <- newIORef @(Maybe CA.Universe.Point) Nothing
     _selection             <- newIORef Nothing
+    _pasteSelectionOverlay <- newIORef Nothing
     _generation            <- newIORef @Int 0
     _delay                 <- newIORef @Int 100000
     _currentMode           <- newIORef T.DrawMode

@@ -158,6 +158,11 @@ data IORefs = IORefs
     -- screen.
   , _selection             :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
 
+    -- When in 'PastePendingMode', we want to display an overlay where the
+    -- clipboard contents must be placed. This controls where this overlay is
+    -- drawn. See '_selection' for more details.
+  , _pasteSelectionOverlay :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
+
     -- Settings
   , _settings              :: IORef Settings
   }
