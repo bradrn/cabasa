@@ -41,7 +41,7 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
 - git: https://github.com/bradrn/cellular-automata
-  commit: 17aee4db7ae8f79c9b0907c4e1b234d89ba65902
+  commit: a99116f4ee4fe74ffb32c80e1187185ed5f7d0b3
   subdirs:
   - cellular-automata
   - cellular-automata-alpaca

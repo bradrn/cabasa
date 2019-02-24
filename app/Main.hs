@@ -55,12 +55,16 @@ main = do
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
+    _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
+    _pasteToCanvas <- builderGetObject builder castToMenuItem "pasteToCanvas"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
     _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
     _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
+    _clearSelection <- builderGetObject builder castToMenuItem "clearSelection"
     _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
     _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
+    _selectMode    <- builderGetObject builder castToMenuItem "selectMode"
     _editSheet     <- builderGetObject builder castToMenuItem "editSheet"
     _about         <- builderGetObject builder castToMenuItem "about"
     _uman          <- builderGetObject builder castToMenuItem "uman"
@@ -132,6 +136,7 @@ main = do
             _getName = const Nothing
             _currentPattern = (_defaultPattern, s)
             _saved = Nothing
+            _clipboardContents = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
     _currentPatternPath    <- newIORef @(Maybe String) Nothing
     _currentRulePath       <- newIORef @(Maybe String) Nothing
@@ -140,6 +145,8 @@ main = do
         T.Pos { _leftXCoord = 0, _topYCoord = 0, _cellWidth = 16, _cellHeight = 16 }
     _runThread             <- newIORef @(Maybe ThreadId) Nothing
     _lastPoint             <- newIORef @(Maybe CA.Universe.Point) Nothing
+    _selection             <- newIORef Nothing
+    _pasteSelectionOverlay <- newIORef Nothing
     _generation            <- newIORef @Int 0
     _delay                 <- newIORef @Int 100000
     _currentMode           <- newIORef T.DrawMode

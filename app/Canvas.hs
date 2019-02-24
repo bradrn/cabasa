@@ -6,10 +6,12 @@ module Canvas (addCanvasHandlers) where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Data.Bifunctor (first)
 import Data.Foldable (for_)
 import Data.Functor (($>))
 import Data.IORef
 
+import Data.Array (array, assocs, bounds)
 import Graphics.Rendering.Cairo hiding (clip)
 import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
 import Lens.Micro
@@ -32,8 +34,10 @@ addCanvasHandlers app = do
     _ <- canvas' `on` draw $ T.withState app $ \state -> do
         let renderFn = state ^. T.state2color
             currentPattern' = renderFn <$> state ^. T.currentPattern . _1
-        pos' <- liftIO $ readIORef (app ^. T.pos)
-        renderUniverse canvas' currentPattern' pos'
+        pos'       <- liftIO $ readIORef (app ^. T.pos)
+        selection' <- liftIO $ readIORef (app ^. T.selection)
+        pasteSelectionOverlay' <- liftIO $ readIORef (app ^. T.pasteSelectionOverlay)
+        renderUniverse canvas' currentPattern' pos' selection' pasteSelectionOverlay'
 
     _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler True app
     _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler False app
@@ -50,6 +54,9 @@ addCanvasHandlers app = do
             return $ state & T.saved .~ Nothing
                            & (T.currentPattern . _1) .~ defGrid
         widgetQueueDraw canvas'
+
+    _ <- (app ^. T.clearSelection) `on` menuItemActivated $
+        writeIORef (app ^. T.selection) Nothing >> widgetQueueDraw canvas'
 
     return ()
 
@@ -103,10 +110,11 @@ canvasMouseHandler fromButtonPress app = do
     MouseGridPos{ viewPos = viewP@(Point viewX viewY)
                 , gridPos = gridP@(Point gridX gridY)
                 } <- getMousePos pos'
+    curMode <- liftIO $ readIORef (app ^. T.currentMode)
     liftIO $ do
         lastPoint' <- readIORef (app ^. T.lastPoint)
-        when (isButtonDown && (maybe True (/= viewP) lastPoint')) $ do
-            readIORef (app ^. T.currentMode) >>= \case
+        if (isButtonDown && (maybe True (/= viewP) lastPoint')) then do
+            case curMode of
                 T.DrawMode -> do
                     stnum <- comboBoxGetActiveIter (app ^. T.curstate) >>= \case
                         Nothing -> return 0
@@ -119,14 +127,64 @@ canvasMouseHandler fromButtonPress app = do
                     Just (Point lastX lastY) -> writeIORef (app ^. T.pos) $
                         pos' & over T.leftXCoord (+ (lastX-viewX))
                              & over T.topYCoord  (+ (lastY-viewY))
+                T.SelectMode -> readIORef (app ^. T.selection) >>= \case
+                    Nothing ->
+                        writeIORef (app ^. T.selection) (Just (gridP, gridP))
+                    Just (p1, _) ->
+                        writeIORef (app ^. T.selection) $
+                            -- Restart selection if mouse was lifted, else continue it
+                            case lastPoint' of
+                                Nothing -> Nothing
+                                Just _  -> Just (p1, gridP)
+                T.PastePendingMode oldMode -> do
+                    T.modifyState app $ \state ->
+                        case state ^. T.clipboardContents of
+                            Nothing -> state
+                            Just c -> state & (T.currentPattern . _1) %~ mergeAtPoint gridP c
+                    writeIORef (app ^. T.pasteSelectionOverlay) Nothing
+                    writeIORef (app ^. T.currentMode) oldMode
             writeIORef (app ^. T.lastPoint) $ Just viewP
             widgetQueueDraw (app ^. T.canvas)
+        else
+            case curMode of
+                T.PastePendingMode _ ->
+                    T.withState app $ \state ->
+                        case (state ^. T.clipboardContents) of
+                            Nothing -> pure ()
+                            Just ccs -> do
+                                let (w, h) = size ccs
+                                writeIORef (app ^. T.pasteSelectionOverlay) $
+                                    Just (gridP, Point (gridX+w) (gridY+h))
+                                widgetQueueDraw (app ^. T.canvas)
+                _ -> return ()
         labelSetText (app ^. T.coordsLbl) $
             "(" ++ show (getCoord gridX) ++ "," ++ show (getCoord gridY) ++ ")"
     return True
 
-renderUniverse :: WidgetClass widget => widget -> Universe (Double, Double, Double) -> T.Pos -> Render ()
-renderUniverse canvas grid T.Pos{..} = do
+-- | Overwrite all points of one 'Universe' with another, displacing
+-- the new 'Universe' to a particular 'Point'.
+mergeAtPoint :: Point       -- ^ Where to start overwriting
+             -> Universe a  -- ^ The new universe to overwrite with
+             -> Universe a  -- ^ The universe to be overwritten
+             -> Universe a  -- ^ Result
+mergeAtPoint (Point x y) (Universe new) (Universe old) =
+    let newAscs = (assocs new) <&> first (\(Point x' y') -> Point (x'+x) (y'+y))
+        oldAscs = assocs old
+        oldBs   = bounds old
+    in Universe $ array oldBs $
+        flip fmap oldAscs $ \a@(i, _val) ->
+            case lookup i newAscs of
+                Nothing -> a
+                Just val' -> (i, val')
+
+renderUniverse :: WidgetClass widget
+               => widget
+               -> Universe (Double, Double, Double)
+               -> T.Pos
+               -> Maybe (Point, Point)
+               -> Maybe (Point, Point)
+               -> Render ()
+renderUniverse canvas grid T.Pos{..} selection pasteSelection = do
 {-
 This is a bit complex. The universe is finite, so it is possible to move the
 viewport to a place which is outside the universe. In this case, only part of
@@ -184,10 +242,10 @@ represented by actualBs and the various Coord values.
         bottomRowCoord = boundsBottom actualBs - boundsTop viewportBs + 1
 
 
-    for_ (zip [fromIntegral leftColCoord..] clipped) $ \(i, row) ->
-        for_ (zip [fromIntegral topRowCoord..] row) $ \(j, (r, g, b)) -> do
+    for_ (zip [fromIntegral topRowCoord..] clipped) $ \(i, row) ->
+        for_ (zip [fromIntegral leftColCoord..] row) $ \(j, (r, g, b)) -> do
             setSourceRGB r g b
-            rectangle (i*_cellWidth) (j*_cellHeight) _cellWidth _cellHeight
+            rectangle (j*_cellWidth) (i*_cellHeight) _cellWidth _cellHeight
             fill
 
     setLineWidth 1.5
@@ -212,8 +270,33 @@ represented by actualBs and the various Coord values.
             moveTo xCoord yCoordTop
             lineTo xCoord yCoordBottom
             stroke
+
+    drawOverlay selection (0,1,0)
+    drawOverlay pasteSelection (0.5,0.5,0)
   where
     getOpacity n = if n `mod` 10 == 0 then 0.3 else 0.15
+
+    -- Clip the second parameter to within the range of the first.
+    clipIn :: Ord n => (n,n) -> n -> n
+    clipIn (l,h) n | l > n = l
+                   | n > h = h
+                   | otherwise = n
+
+    drawOverlay overlay (r,g,b) =
+        maybeM overlay $ \(Point x1 y1, Point x2 y2) -> do
+            let (gw,gh) = size grid
+                x1' = __ (getCoord (clipIn (0,gw) x1 - _leftXCoord)) * _cellWidth
+                y1' = __ (getCoord (clipIn (0,gh) y1 - _topYCoord))  * _cellHeight
+                x2' = __ (getCoord (clipIn (0,gw) x2 - _leftXCoord)) * _cellWidth
+                y2' = __ (getCoord (clipIn (0,gh) y2 - _topYCoord))  * _cellHeight
+            -- Draw green rectangle for selection
+            setSourceRGBA r g b 0.5
+            rectangle x1' y1' (x2'-x1') (y2'-y1')
+            fill
+      where
+        maybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
+        maybeM Nothing  _ = pure ()
+        maybeM (Just a) c = c a
 
 -- Short, type-restricted version of fromIntegral for convenience
 __ :: Integral a => a -> Double

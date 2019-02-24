@@ -28,7 +28,16 @@ import Hint.Interop
 
 data Rule = ALPACA | Hint
 
-data InteractionMode = DrawMode | MoveMode
+data InteractionMode
+    = DrawMode
+    -- ^ When the user click/drags, draw on the screen
+    | MoveMode
+    -- ^ When the user click/drags, move the grid
+    | SelectMode
+    -- ^ When the user click/drags, draw a selection box
+    | PastePendingMode InteractionMode
+    -- ^ When the user clicks, paste the clipboard contents, then
+    -- restore the previous mode (stored as the parameter)
 
 data Application = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.
@@ -49,12 +58,16 @@ data GuiObjects = GuiObjects
     , _openPattern           :: MenuItem
     , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
+    , _copyCanvas            :: MenuItem
+    , _pasteToCanvas         :: MenuItem
     , _setRule               :: MenuItem
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
     , _clearPattern          :: MenuItem
+    , _clearSelection        :: MenuItem
     , _drawMode              :: MenuItem
     , _moveMode              :: MenuItem
+    , _selectMode            :: MenuItem
     , _editSheet             :: MenuItem
     , _about                 :: MenuItem
     , _uman                  :: MenuItem
@@ -104,6 +117,11 @@ data ExistState' t = ExistState'
     , _currentPattern  :: (Universe t, StdGen)
     -- The grid which is to be restored when the 'reset' button is pressed.
     , _saved           :: Maybe (Universe t, Pos)
+
+    -- The current contents of the clipboard, if any. GTK does provide
+    -- an interface to the OS clipboard, but it's fairly tricky to
+    -- use, so we just emulate our own clipboard.
+    , _clipboardContents :: Maybe (Universe t)
     }
 data ExistState = forall t. Eq t => ExistState (ExistState' t)
 
@@ -132,6 +150,18 @@ data IORefs = IORefs
     -- top left corner is showing the cell at (3, 8) but the mouse is also at
     -- this point then lastPoint is (0, 0) and not (3, 8).
   , _lastPoint             :: IORef (Maybe CA.Universe.Point)
+
+    -- The current selection, if selection mode is enabled. Comprised of a tuple
+    -- of two corners of the selection - exactly which corners these are is not
+    -- fixed and is based on user input, with the tuple being the (first,last)
+    -- point selected. Unlike '_lastPoint' this is relative to the grid, not the
+    -- screen.
+  , _selection             :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
+
+    -- When in 'PastePendingMode', we want to display an overlay where the
+    -- clipboard contents must be placed. This controls where this overlay is
+    -- drawn. See '_selection' for more details.
+  , _pasteSelectionOverlay :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
 
     -- Settings
   , _settings              :: IORef Settings

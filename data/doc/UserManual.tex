@@ -276,6 +276,25 @@ This is because the grid is finite.
 However, the grid `wraps around' at its edges; that is, if you move off one edge of the grid, you reappear at the opposite edge.
 For instance, the cell immediately above the topmost cell is considered to be the bottommost cell.
 
+\section{Selection and copying}
+\label{sec:selcopy}
+
+In addition to the two modes described above, there is also a mode for selecting parts of the grid.
+This \emph{selection mode} may be accessed via the \menu{Draw > Mode} menu, like the other two modes,
+  or with the \keys{S} hotkey.
+In this mode, you may click and drag to select a portion of the grid (shown in green).
+Click and drag again in a different part of the grid to make a new selection.
+To clear the current selection, use the \hbox{\menu{Draw > Clear Selection}} menu item,
+  or its hotkey \keys{\ctrl + K}.
+
+Once you have selected part of a grid, you may \emph{copy} it into the \emph{clipboard},
+  with the purpose of \emph{pasting} it back into another part of the grid.
+To copy the selection, use the \menu{Edit > Copy} menu item.
+To paste your selection back, press \menu{Edit > Paste};
+  a brown overlay will then be shown at the location where your selection will be pasted.
+Move your mouse, and then click on your document to paste your selection at the shown location.
+The usual hotkeys \keys{\ctrl + C} and \keys{\ctrl + V} respectively may also be used.
+
 \section{Changing the Rule}
 \label{sec:chngrule}
 
