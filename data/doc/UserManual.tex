@@ -580,8 +580,12 @@ This metadata is stored --- along with the rule itself --- in a record, \texttt{
   The rule function itself
 \item[\_states :: {[t]}]
   A list of states to be shown in the state selection box (at the top of the window)
-\item[\_defaultPattern :: Universe t]
-  The pattern to be used by default
+\item[\_defaultSize :: (Coord 'X, Coord 'Y)]
+  The width and height respectively of the default pattern.
+\item[\_defaultVal :: Point -> t]
+  The default value at the given point.
+  This must be a total function which returns a sensible value for all points,
+    not just ones inside the range defined by \textbf{\texttt{\_defaultSize}}.
 \item[\_state2color :: t -> (Double, Double, Double)]
   A function to specify a colour for each state.
   Colours are specified as a tuple of \texttt{(red, green, blue)}.
@@ -653,8 +657,10 @@ myCA = CAVals $ CAVals' {..}
     -- `Dead' is shown as state 0 and `Alive' is shown as state 1.
     _states = [Dead, Alive]
 
-    -- This is the pattern shown when the rule is first loaded.
-    _defaultPattern = fromList $ replicate 100 $ replicate 100 Dead
+    -- This is the size of the default pattern shown when the rule is first loaded.
+    _defaultSize = (100, 100)
+    -- And the state at each point of the default pattern:
+    _defaultVal _point = Dead
 
     -- This is the function which determines what colour each state is displayed
     -- as.
@@ -715,7 +721,8 @@ myCA = CAVals $ CAVals' {..}
   where
     _rule = pureRule conwayLife
     _states = [Dead, Alive]
-    _defaultPattern = fromList $ replicate 100 $ replicate 100 Dead
+    _defaultSize = (100, 100)
+    _defaultVal  = const Dead
     _state2color Dead  = (1,1,1)
     _state2color Alive = (0,0,0)
     _encodeInt Dead  = 0

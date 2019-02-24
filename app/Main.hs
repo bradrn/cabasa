@@ -23,7 +23,7 @@ import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
 
 import CA.Core (pureRule)
-import CA.Universe (fromList, Point)
+import CA.Universe (Coord(..), fromList, Point)
 import CA.Utils (conwayLife)
 import Canvas
 import ControlButtons
@@ -128,13 +128,17 @@ main = do
         (numcols, numrows) <- getSettingFrom' T.gridSize _settings
         let _rule = pureRule conwayLife
             _states = [False, True]
-            _defaultPattern = fromList $ replicate numrows $ replicate numcols False
+            _defaultSize = (Coord numcols, Coord numrows)
+            _defaultVal  = const False
             _state2color st = if st then (0,0,0) else (1,1,1)
             _encodeInt = fromEnum
             _decodeInt 1 = True
             _decodeInt _ = False
             _getName = const Nothing
-            _currentPattern = (_defaultPattern, s)
+            _currentPattern =
+                ( _defaultPattern _defaultSize _defaultVal
+                , s
+                )
             _saved = Nothing
             _clipboardContents = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})

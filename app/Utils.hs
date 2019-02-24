@@ -89,9 +89,8 @@ setCurrentRule app path text ruleType =
                                 , stateData }) =
             let maxVal = natVal (Proxy @n)
             in (,isJust initConfig) $ CAVals $ CAVals'
-                { _defaultPattern = case initConfig of
-                      Just p  -> fromList p
-                      Nothing -> fromList $ replicate numrows $ replicate numcols $ 0
+                { _defaultSize = (Coord numcols, Coord numrows)
+                , _defaultVal  = const 0
                 , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
                 , _encodeInt = fromInteger . F.getFinite
                 , _decodeInt = F.finite . min (maxVal-1) . toInteger
