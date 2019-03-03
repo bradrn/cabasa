@@ -55,6 +55,7 @@ main = do
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
+    _cutCanvas     <- builderGetObject builder castToMenuItem "cutCanvas"
     _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
     _pasteToCanvas <- builderGetObject builder castToMenuItem "pasteToCanvas"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"

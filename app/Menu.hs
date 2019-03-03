@@ -5,16 +5,18 @@
 module Menu (addMenuHandlers) where
 
 import Control.Monad (when, void, filterM)
+import Data.Ix (range)
 import Data.IORef
 import Data.List (find)
 
 import qualified CA.Format.MCell as MC
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (Point)
 import Lens.Micro hiding (set)
 import System.FilePath ((</>), takeExtension, takeBaseName, (-<.>))
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
+import CA.Core (peek, evolve)
 import CA.Types (Point(Point))
 import CA.Universe (fromList, clipInside, Bounds(..))
 import qualified Utils as U
@@ -40,6 +42,7 @@ addMenuHandlers app = do
     _ <- (app ^. T.uman)  `on` menuItemActivated $ showUserManual
 
     _ <- (app ^. T.copyCanvas)    `on` menuItemActivated $ copyCanvas app
+    _ <- (app ^. T.cutCanvas)     `on` menuItemActivated $ cutCanvas  app
     _ <- (app ^. T.pasteToCanvas) `on` menuItemActivated $
         modifyIORef (app ^. T.currentMode) T.PastePendingMode
 
@@ -67,16 +70,38 @@ modifyDelay app fn = do
 copyCanvas :: T.Application -> IO ()
 copyCanvas app = readIORef (app ^. T.selection) >>= \case
     Nothing -> pure ()    -- Can't copy when there's no selection!
-    Just (Point x1 y1, Point x2 y2) ->
-        T.modifyState app $ \state ->
-            let (grid, _) = state ^. T.currentPattern
-                (_, vals) = clipInside grid Bounds
-                    { boundsLeft   = min x1 x2
-                    , boundsRight  = max x1 x2
-                    , boundsTop    = min y1 y2
-                    , boundsBottom = max y1 y2
-                    }
-            in state & T.clipboardContents .~ (Just $ fromList vals)
+    Just ps -> doCopy ps app
+
+cutCanvas :: T.Application -> IO ()
+cutCanvas app = readIORef (app ^. T.selection) >>= \case
+    Nothing -> pure ()    -- Can't cut when there's no selection!
+    Just ps@(Point x1 y1, Point x2 y2) ->
+        let lo = Point (min x1 x2) (min y1 y2)
+            hi = Point (max x1 x2) (max y1 y2)
+            inSelPs = range (lo,hi)
+        in do
+            doCopy ps app
+            T.modifyState app $ \state ->
+                let def = state ^. T.defaultVal
+                in state & (T.currentPattern . _1) %~ evolve
+                    (\p val ->
+                         if p `elem` inSelPs
+                         then def p
+                         else peek p val)
+            widgetQueueDraw (app ^. T.canvas)
+
+doCopy :: (Point, Point)  -- ^ Selection
+       -> T.Application -> IO ()
+doCopy (Point x1 y1, Point x2 y2) app =
+    T.modifyState app $ \state ->
+        let (grid, _) = state ^. T.currentPattern
+            (_, vals) = clipInside grid Bounds
+                { boundsLeft   = min x1 x2
+                , boundsRight  = max x1 x2
+                , boundsTop    = min y1 y2
+                , boundsBottom = max y1 y2
+                }
+        in state & T.clipboardContents .~ (Just $ fromList vals)
 
 savePattern :: T.Application -> IO ()
 savePattern app =

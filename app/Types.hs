@@ -60,6 +60,7 @@ data GuiObjects = GuiObjects
     , _openPattern           :: MenuItem
     , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
+    , _cutCanvas             :: MenuItem
     , _copyCanvas            :: MenuItem
     , _pasteToCanvas         :: MenuItem
     , _setRule               :: MenuItem
