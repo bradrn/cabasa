@@ -113,7 +113,7 @@ canvasMouseHandler fromButtonPress app = do
     curMode <- liftIO $ readIORef (app ^. T.currentMode)
     liftIO $ do
         lastPoint' <- readIORef (app ^. T.lastPoint)
-        if (isButtonDown && (maybe True (/= viewP) lastPoint')) then do
+        if (isButtonDown && (maybe True (viewP /=) lastPoint')) then do
             case curMode of
                 T.DrawMode -> do
                     stnum <- comboBoxGetActiveIter (app ^. T.curstate) >>= \case
