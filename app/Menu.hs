@@ -7,6 +7,7 @@ module Menu (addMenuHandlers) where
 import Control.Monad (when, void, filterM)
 import Data.IORef
 import Data.List (find)
+import Data.Maybe (isJust)
 
 import qualified CA.Format.MCell as MC
 import Graphics.UI.Gtk
@@ -41,7 +42,8 @@ addMenuHandlers app = do
 
     _ <- (app ^. T.copyCanvas)    `on` menuItemActivated $ copyCanvas app
     _ <- (app ^. T.pasteToCanvas) `on` menuItemActivated $
-        modifyIORef (app ^. T.currentMode) T.PastePendingMode
+        readIORef (app ^. T.selection) >>= \sel ->
+            when (isJust sel) $ modifyIORef (app ^. T.currentMode) T.PastePendingMode
 
     _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)
