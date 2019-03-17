@@ -154,7 +154,7 @@ canvasMouseHandler fromButtonPress app = do
                             Just ccs -> do
                                 let (w, h) = size ccs
                                 writeIORef (app ^. T.pasteSelectionOverlay) $
-                                    Just (gridP, Point (gridX+w) (gridY+h))
+                                    Just (gridP, Point (gridX+w-1) (gridY+h-1))
                                 widgetQueueDraw (app ^. T.canvas)
                 _ -> return ()
         labelSetText (app ^. T.coordsLbl) $
@@ -287,8 +287,8 @@ represented by actualBs and the various Coord values.
             let (gw,gh) = size grid
                 x1' = __ (getCoord (clipIn (0,gw) x1 - _leftXCoord)) * _cellWidth
                 y1' = __ (getCoord (clipIn (0,gh) y1 - _topYCoord))  * _cellHeight
-                x2' = __ (getCoord (clipIn (0,gw) x2 - _leftXCoord)) * _cellWidth
-                y2' = __ (getCoord (clipIn (0,gh) y2 - _topYCoord))  * _cellHeight
+                x2' = __ (getCoord (clipIn (0,gw) x2 +1 - _leftXCoord)) * _cellWidth
+                y2' = __ (getCoord (clipIn (0,gh) y2 +1 - _topYCoord))  * _cellHeight
             -- Draw green rectangle for selection
             setSourceRGBA r g b 0.5
             rectangle x1' y1' (x2'-x1') (y2'-y1')
