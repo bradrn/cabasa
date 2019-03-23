@@ -23,7 +23,7 @@ import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
 
 import CA.Core (pureRule)
-import CA.Universe (fromList, Point)
+import CA.Universe (Coord(..), fromList, Point)
 import CA.Utils (conwayLife)
 import Canvas
 import ControlButtons
@@ -55,8 +55,10 @@ main = do
     _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
     _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
     _quit          <- builderGetObject builder castToMenuItem "quit"
+    _cutCanvas     <- builderGetObject builder castToMenuItem "cutCanvas"
     _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
     _pasteToCanvas <- builderGetObject builder castToMenuItem "pasteToCanvas"
+    _changeGridSize <- builderGetObject builder castToMenuItem "changeGridSize"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
     _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
@@ -120,6 +122,11 @@ main = do
     _numColsAdjustment     <- builderGetObject builder castToAdjustment        "numColsAdjustment"
     _numRowsAdjustment     <- builderGetObject builder castToAdjustment        "numRowsAdjustment"
 
+    ------- New grid size dialog -----------
+    _newGridSizeDialog    <- builderGetObject builder castToDialog     "newGridSizeDialog"
+    _newNumColsAdjustment <- builderGetObject builder castToAdjustment "newNumColsAdjustment"
+    _newNumRowsAdjustment <- builderGetObject builder castToAdjustment "newNumRowsAdjustment"
+
     let guiObjects = T.GuiObjects{..}
 
     _settings   <- newIORef =<< readSettings _window
@@ -128,13 +135,17 @@ main = do
         (numcols, numrows) <- getSettingFrom' T.gridSize _settings
         let _rule = pureRule conwayLife
             _states = [False, True]
-            _defaultPattern = fromList $ replicate numrows $ replicate numcols False
+            _defaultSize = (Coord numcols, Coord numrows)
+            _defaultVal  = const False
             _state2color st = if st then (0,0,0) else (1,1,1)
             _encodeInt = fromEnum
             _decodeInt 1 = True
             _decodeInt _ = False
             _getName = const Nothing
-            _currentPattern = (_defaultPattern, s)
+            _currentPattern =
+                ( _defaultPattern _defaultSize _defaultVal
+                , s
+                )
             _saved = Nothing
             _clipboardContents = Nothing
         newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})

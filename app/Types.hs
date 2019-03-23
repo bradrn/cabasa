@@ -7,18 +7,20 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE UndecidableInstances      #-}
 
 module Types where
 
 import Control.Concurrent (ThreadId)
 import Control.Monad.IO.Class (liftIO)
+import Data.Functor.Const
 import Data.IORef
 import GHC.Generics
 
 import CA.Universe
 import Control.Monad.Random.Strict (MonadIO, StdGen)
 import Data.Aeson.TH (deriveJSON, defaultOptions, fieldLabelModifier)
-import Graphics.UI.Gtk hiding (Settings)
+import Graphics.UI.Gtk hiding (Settings, Point)
 import Language.Haskell.TH.Syntax (mkName)
 import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
@@ -58,8 +60,10 @@ data GuiObjects = GuiObjects
     , _openPattern           :: MenuItem
     , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
+    , _cutCanvas             :: MenuItem
     , _copyCanvas            :: MenuItem
     , _pasteToCanvas         :: MenuItem
+    , _changeGridSize        :: MenuItem
     , _setRule               :: MenuItem
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
@@ -103,6 +107,9 @@ data GuiObjects = GuiObjects
     , _userRulesDirChooser   :: FileChooserButton
     , _numColsAdjustment     :: Adjustment
     , _numRowsAdjustment     :: Adjustment
+    , _newGridSizeDialog     :: Dialog
+    , _newNumColsAdjustment  :: Adjustment
+    , _newNumRowsAdjustment  :: Adjustment
     }
 
 data Pos = Pos { _leftXCoord :: Coord 'X
@@ -201,6 +208,18 @@ instance HasCAVals' (ExistState' t) t where caVals' = ca
 makeLenses ''Application
 instance HasIORefs Application where ioRefs = appIORefs
 instance HasGuiObjects Application where guiObjects = appGuiObjects
+
+class HasDefaultPattern c t | c -> t where
+    defaultPattern :: SimpleGetter c (Universe t)
+
+instance HasCAVals' c t => HasDefaultPattern c t where
+    defaultPattern = \out vals ->
+        let s = vals ^. defaultSize
+            v = vals ^. defaultVal
+        in retag $ out $ _defaultPattern s v
+      where
+        retag :: Const x a -> Const x b
+        retag (Const x) = Const x
 
 -- ExistsState is an existential, so it's hard to use lenses with it; here's
 -- some functions to make it easier to work with ExistsState inside Application

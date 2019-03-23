@@ -13,7 +13,8 @@ myCA = CAVals $ CAVals' {..}
   where
     _rule = (pure.) . conwayLife
     _states = [Dead, Alive]
-    _defaultPattern = fromList $ replicate 100 $ replicate 100 Dead
+    _defaultSize = (100,100)
+    _defaultVal  = const Dead
     _state2color Dead  = (1,1,1)
     _state2color Alive = (0,0,0)
     _encodeInt Dead  = 0

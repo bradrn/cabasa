@@ -54,7 +54,8 @@ myCA = CAVals $ CAVals' {..}
     _rule = (pure.) . langton
     _states = [State White, State Black] ++
               [Ant c d | d <- [LeftDir, RightDir, UpDir, DownDir], c <- [White, Black]]
-    _defaultPattern = fromList $ replicate 100 $ replicate 100 (State White)
+    _defaultSize = (100,100)
+    _defaultVal  = const (State White)
     _state2color (State White) = (1,1,1)
     _state2color (State Black) = (0,0,0)
     _state2color (Ant White _) = (0,1,1)
