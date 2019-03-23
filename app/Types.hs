@@ -63,6 +63,7 @@ data GuiObjects = GuiObjects
     , _cutCanvas             :: MenuItem
     , _copyCanvas            :: MenuItem
     , _pasteToCanvas         :: MenuItem
+    , _changeGridSize        :: MenuItem
     , _setRule               :: MenuItem
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
@@ -106,6 +107,9 @@ data GuiObjects = GuiObjects
     , _userRulesDirChooser   :: FileChooserButton
     , _numColsAdjustment     :: Adjustment
     , _numRowsAdjustment     :: Adjustment
+    , _newGridSizeDialog     :: Dialog
+    , _newNumColsAdjustment  :: Adjustment
+    , _newNumRowsAdjustment  :: Adjustment
     }
 
 data Pos = Pos { _leftXCoord :: Coord 'X

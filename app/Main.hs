@@ -58,6 +58,7 @@ main = do
     _cutCanvas     <- builderGetObject builder castToMenuItem "cutCanvas"
     _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
     _pasteToCanvas <- builderGetObject builder castToMenuItem "pasteToCanvas"
+    _changeGridSize <- builderGetObject builder castToMenuItem "changeGridSize"
     _setRule       <- builderGetObject builder castToMenuItem "setRule"
     _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
     _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
@@ -120,6 +121,11 @@ main = do
     _userRulesDirChooser   <- builderGetObject builder castToFileChooserButton "userRulesDirChooser"
     _numColsAdjustment     <- builderGetObject builder castToAdjustment        "numColsAdjustment"
     _numRowsAdjustment     <- builderGetObject builder castToAdjustment        "numRowsAdjustment"
+
+    ------- New grid size dialog -----------
+    _newGridSizeDialog    <- builderGetObject builder castToDialog     "newGridSizeDialog"
+    _newNumColsAdjustment <- builderGetObject builder castToAdjustment "newNumColsAdjustment"
+    _newNumRowsAdjustment <- builderGetObject builder castToAdjustment "newNumRowsAdjustment"
 
     let guiObjects = T.GuiObjects{..}
 

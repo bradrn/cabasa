@@ -1,6 +1,9 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Menu (addMenuHandlers) where
 
@@ -17,8 +20,8 @@ import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
 import CA.Core (peek, evolve)
-import CA.Types (Point(Point))
-import CA.Universe (fromList, clipInside, Bounds(..))
+import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
+import CA.Universe (render, fromList, size, clipInside, Bounds(..))
 import qualified Utils as U
 import Settings (getSetting')
 import SettingsDialog
@@ -45,6 +48,8 @@ addMenuHandlers app = do
     _ <- (app ^. T.cutCanvas)     `on` menuItemActivated $ cutCanvas  app
     _ <- (app ^. T.pasteToCanvas) `on` menuItemActivated $
         modifyIORef (app ^. T.currentMode) T.PastePendingMode
+
+    _ <- (app ^. T.changeGridSize) `on` menuItemActivated $ changeGridSize app
 
     _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)
@@ -102,6 +107,59 @@ doCopy (Point x1 y1, Point x2 y2) app =
                 , boundsBottom = max y1 y2
                 }
         in state & T.clipboardContents .~ (Just $ fromList vals)
+
+changeGridSize :: T.Application -> IO ()
+changeGridSize app = do
+    T.modifyStateM app $ \state -> do
+        let (cols, rows) = size (state ^. (T.currentPattern . _1))
+        adjustmentSetValue (app ^. T.newNumColsAdjustment) $ fromIntegral cols
+        adjustmentSetValue (app ^. T.newNumRowsAdjustment) $ fromIntegral rows
+        dialogRun (app ^. T.newGridSizeDialog) >>= \case
+           ResponseUser 1 -> do  -- OK button
+               newCols <- floor <$> adjustmentGetValue (app ^. T.newNumColsAdjustment)
+               newRows <- floor <$> adjustmentGetValue (app ^. T.newNumRowsAdjustment)
+               return $ state & (T.currentPattern . _1) %~
+                   (changeGridTo (Coord newCols, Coord newRows)
+                                   (state ^. T.defaultVal))
+           _ -> pure state  -- Don't change state
+    widgetHide (app ^. T.newGridSizeDialog)
+    widgetQueueDraw (app ^. T.canvas)
+ where
+   changeGridTo :: forall a. (Coord 'X, Coord 'Y) -> (Point -> a) -> Universe a -> Universe a
+   changeGridTo (newCols, newRows) def u =
+       let u' = render u
+           (oldCols, oldRows) = size u
+           dCols = newCols - oldCols
+           dRows = newRows - oldRows
+
+           withExtraRows = addRows dRows u'
+           withExtraCols = addCols dCols withExtraRows
+       in fromList withExtraCols
+     where
+         imap :: (Int -> x -> y) -> [x] -> [y]
+         imap f = snd . foldr (\val (i,acc) -> (i+1, (f i val):acc)) (0, [])
+
+         addCols :: Coord 'X -> [[a]] -> [[a]]
+         addCols 0 = id
+         addCols (Coord n)
+             | n < 0 = fmap $ \row -> take (n + length row) row
+             | otherwise = imap $ \i row ->
+                   let firstNewCol = length row
+                       newColNs = Coord @'X <$> [firstNewCol .. (firstNewCol + n - 1)]
+                       newColVals = newColNs <&> \col -> def (Point col (Coord i))
+                   in row ++ newColVals
+
+         addRows :: Coord 'Y -> [[a]] -> [[a]]
+         addRows 0 u' = u'
+         addRows (Coord n) u'
+             | n < 0 = take (n + length u') u'
+             | otherwise =
+                   let width = Coord @'X $ length (head u') - 1
+                       firstNewRow = length u'
+                       newRowNs = Coord @'Y <$> [firstNewRow .. (firstNewRow + n - 1)]
+                       newRowVals = newRowNs <&> \row ->
+                           [0..width] <&> \col -> def (Point col row)
+                   in u' ++ newRowVals
 
 savePattern :: T.Application -> IO ()
 savePattern app =
