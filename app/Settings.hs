@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE RecordWildCards  #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module Settings where
 
@@ -10,8 +11,9 @@ import Data.Functor (($>))
 import Data.IORef
 import Data.Maybe (fromJust, fromMaybe)
 
+import Data.Text (pack)
 import Data.Yaml
-import Graphics.UI.Gtk
+import GI.Gtk
 import Lens.Micro
 import System.Directory
 import System.FilePath ((</>))
@@ -39,22 +41,24 @@ readSettings win = do
     doesFileExist l >>= \case
         False ->
             showMessageDialog
-                (Just win)
-                MessageError
-                ButtonsYesNo
+                win
+                MessageTypeError
+                ButtonsTypeYesNo
                 ("Settings file does not exist.\n\nDo you want to create a settings file with default settings?")
             $ \case
-                ResponseYes -> defaultSettings >>= \def -> writeSettings def $> def
-                _           -> defaultSettings
+                ResponseTypeYes
+                    -> defaultSettings >>= \def -> writeSettings def $> def
+                _   -> defaultSettings
         True ->
             decodeFileEither @T.Settings l >>= \case
                 Left err ->
                     showMessageDialog
-                        (Just win)
-                        MessageError
-                        ButtonsOk
-                        ("Error when reading settings:\n" ++ prettyPrintParseException err
-                         ++ "\nUsing default settings.")
+                        win
+                        MessageTypeError
+                        ButtonsTypeOk
+                        ("Error when reading settings:\n"
+                         <> pack (prettyPrintParseException err)
+                         <> "\nUsing default settings.")
                         (const $ pure ())
                     >> defaultSettings
                 Right ss -> pure ss

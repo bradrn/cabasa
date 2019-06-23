@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLabels #-}
+
 -- This is a small module containing only one convenience function.
 -- Usually a function such as this would be located in Utils.hs, but
 -- here this would cause a circular dependency between Utils.hs and
@@ -5,13 +7,25 @@
 -- Utils would require one of the functions from Settings. This
 -- module is used as a circuit-breaker so this situation does not
 -- occur.
-module ShowDialog (showMessageDialog) where
+module ShowDialog (showMessageDialog, dialogRun') where
 
-import Graphics.UI.Gtk
+import Control.Monad.IO.Class (MonadIO)
+import GHC.Stack (HasCallStack)
 
-showMessageDialog :: Maybe Window -> MessageType -> ButtonsType -> String -> (ResponseId -> IO a) -> IO a
+import GI.Gtk
+import Data.Text (Text)
+
+showMessageDialog :: Window -> MessageType -> ButtonsType -> Text -> (ResponseType -> IO a) -> IO a
 showMessageDialog window level buttons message fn = do
-    d <- messageDialogNew window [DialogModal] level buttons message
-    result <- dialogRun d
-    widgetDestroy d
-    fn result
+    d <- new MessageDialog
+        [ #transientFor := window
+        , #messageType  := level
+        , #buttons      := buttons
+        , #text         := message
+        ]
+    response <- dialogRun' d
+    #destroy d
+    fn response
+
+dialogRun' :: (HasCallStack, MonadIO m, IsDialog a) => a -> m ResponseType
+dialogRun' = fmap (toEnum.fromIntegral) . dialogRun

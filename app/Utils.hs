@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedLabels    #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -10,16 +12,19 @@
 module Utils (module Utils, module ShowDialog) where
 
 import Control.Monad (forM_, when)
+import Data.Int (Int32)
 import Data.IORef
 import Data.Maybe (isJust)
 import Data.Proxy
+import Foreign.C.Types (CInt)
 import GHC.TypeLits (natVal)
 
 import CA.Universe
 import CA.ALPACA
 import Control.Monad.Random.Strict (newStdGen, Rand, StdGen)
 import qualified Data.Finite as F
-import Graphics.UI.Gtk hiding (Point)
+import Data.Text (pack)
+import GI.Gtk
 import Hint
 import Lens.Micro
 import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
@@ -37,15 +42,15 @@ modifyGeneration app f = do
     g <- readIORef generation
     let g' = f g
     writeIORef generation g'
-    labelSetText generationLbl $ show g'
+    labelSetText generationLbl $ pack $ show g'
 
 setCurrentRule :: T.Application -> Maybe FilePath -> String -> T.Rule -> IO ()
 setCurrentRule app path text ruleType =
     parseRule text >>= \case
-         Left err -> showMessageDialog (Just $ app ^. T.window)
-                                       MessageError
-                                       ButtonsOk
-                                       err
+         Left err -> showMessageDialog (app ^. T.window)
+                                       MessageTypeError
+                                       ButtonsTypeOk
+                                       (pack err)
                                        (const $ pure ())
          Right (CAVals _ca, pressClear) -> do
              g <- newStdGen
@@ -62,10 +67,14 @@ setCurrentRule app path text ruleType =
              -- Update the ListStore with the new states
              let curstatem = app ^. T.curstatem
                  curstate  = app ^. T.curstate
-             (listStoreClear curstatem) >> forM_ (enumFromTo 0 $ length (_ca ^. T.states) - 1) (listStoreAppend curstatem)
+             (listStoreClear curstatem)
+             forM_ (enumFromTo 0 $ length (_ca ^. T.states) - 1) $ \val -> do
+                 iter <- listStoreAppend curstatem
+                 val' <- toGValue (fromIntegral val :: CInt)
+                 listStoreSet curstatem iter [0] [val']
              comboBoxSetActive curstate 0
 
-             when pressClear $ menuItemEmitActivate (app ^. T.clearPattern)
+             when pressClear $ menuItemActivate (app ^. T.clearPattern)
 
              -- Because we're changing the currentPattern, we need to redraw
              widgetQueueDraw $ app ^. T.canvas
@@ -99,21 +108,21 @@ setCurrentRule app path text ruleType =
                 , _getName = Just . fst . stateData}
 
 -- Returns a file chooser preconfigured to save or open rule files
-getRuleFileChooser :: T.Application -> Maybe T.Rule -> FileChooserAction -> IO FileChooserDialog
+getRuleFileChooser :: T.Application -> Maybe T.Rule -> FileChooserAction -> IO FileChooserNative
 getRuleFileChooser app filterType action = do
-    fChooser <- fileChooserDialogNew
+    fChooser <- fileChooserNativeNew
         Nothing
         (Just $ app ^. T.setRuleWindow)
         action
-        [("Cancel", ResponseCancel), ("OK", ResponseOk )]
+        Nothing Nothing
 
     alpacaFilter <- fileFilterNew
-    fileFilterSetName alpacaFilter "ALPACA files"
+    fileFilterSetName alpacaFilter $ Just "ALPACA files"
     fileFilterAddPattern alpacaFilter "*.alp"
     fileChooserAddFilter fChooser alpacaFilter
 
     haskellFilter <- fileFilterNew
-    fileFilterSetName haskellFilter "Haskell files"
+    fileFilterSetName haskellFilter $ Just "Haskell files"
     fileFilterAddPattern haskellFilter "*.hs"
     fileFilterAddPattern haskellFilter "*.lhs"
     fileChooserAddFilter fChooser haskellFilter
@@ -126,31 +135,38 @@ getRuleFileChooser app filterType action = do
     return fChooser
 
 -- Returns a file chooser preconfigured to save or open pattern files
-getPatternFileChooser :: T.Application -> FileChooserAction -> IO FileChooserDialog
+getPatternFileChooser :: T.Application -> FileChooserAction -> IO FileChooserNative
 getPatternFileChooser app action = do
-    fChooser <- fileChooserDialogNew
+    fChooser <- fileChooserNativeNew
         Nothing
         (Just $ app ^. T.setRuleWindow)
         action
-        [("Cancel", ResponseCancel), ("OK", ResponseOk )]
+        Nothing Nothing
 
     mCellFilter <- fileFilterNew
-    fileFilterSetName mCellFilter "MCell files (*.mcl)"
+    fileFilterSetName mCellFilter $ Just "MCell files (*.mcl)"
     fileFilterAddPattern mCellFilter "*.mcl"
     fileChooserAddFilter fChooser mCellFilter
 
     return fChooser
 
-withFileDialogChoice :: (FileChooserAction -> IO FileChooserDialog)
+withFileDialogChoice :: (FileChooserAction -> IO FileChooserNative)
                      -> FileChooserAction
-                     -> (FileChooserDialog -> FilePath -> IO a)
+                     -> (FileChooserNative -> FilePath -> IO a)
                      -> IO (Maybe a)
 withFileDialogChoice constr action contn = do
     fChooser <- constr action
-    result <- dialogRun fChooser >>= \case
-        ResponseOk -> fileChooserGetFilename fChooser >>= \case
+    fmap (toEnum.fromIntegral) (#run fChooser) >>= \case
+        ResponseTypeOk -> fileChooserGetFilename fChooser >>= \case
             Just fName -> Just <$> contn fChooser fName
             Nothing -> pure Nothing
         _ -> pure Nothing
-    widgetDestroy fChooser
-    return result
+
+-- Utilities for working with gi-gtk enums
+-- Usage: like 'funcTakingAnEnum (param val)' or 'enum (funcReturningAnEnum)'
+
+param :: Enum e => e -> Int32
+param = fromIntegral . fromEnum
+
+enum :: Enum e => Int32 -> e
+enum = toEnum . fromIntegral

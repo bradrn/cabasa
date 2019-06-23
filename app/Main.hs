@@ -3,6 +3,8 @@
 {-# LANGUAGE LambdaCase                  #-}
 {-# LANGUAGE MultiWayIf                  #-}
 {-# LANGUAGE NamedFieldPuns              #-}
+{-# LANGUAGE OverloadedLabels            #-}
+{-# LANGUAGE OverloadedStrings           #-}
 {-# LANGUAGE RankNTypes                  #-}
 {-# LANGUAGE RecordWildCards             #-}
 {-# LANGUAGE ScopedTypeVariables         #-}
@@ -14,13 +16,18 @@
 module Main (main) where
 
 import Control.Concurrent (ThreadId)
-import Control.Monad ((=<<), replicateM)
+import Control.Monad ((>=>), (=<<), replicateM, forM_)
+import Control.Monad.IO.Class (liftIO)
+import Data.Int (Int32)
 import Data.IORef
 
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
-import Graphics.UI.Gtk
-import Graphics.UI.Gtk.General.CssProvider
-import Graphics.UI.Gtk.General.StyleContext
+import Data.Text
+import Data.GI.Gtk.BuildFn
+import GI.Gtk hiding (init, main)
+import qualified GI.Gtk as G
+import GI.Gdk (screenGetDefault)
+import Lens.Micro
 
 import CA.Core (pureRule)
 import CA.Universe (Coord(..), fromList, Point)
@@ -37,99 +44,18 @@ import qualified Types as T
 
 main :: IO ()
 main = do
-    initGUI
+    G.init Nothing
     builder <- builderNew
-    builderAddFromFile builder =<< getDataFileName "cabasa.glade"
+    builderAddFromFile builder . pack =<< getDataFileName "cabasa.glade"
     prov <- cssProviderNew
-    cssProviderLoadFromPath prov =<< getDataFileName "cabasa.css"
+    cssProviderLoadFromPath prov . pack =<< getDataFileName "cabasa.css"
     screenGetDefault >>= \case
         Just screen -> styleContextAddProviderForScreen screen prov 800
         Nothing -> return ()
 
-    _window <- builderGetObject builder castToWindow      "window"
+    guiObjects <- buildWithBuilder buildUI builder
 
-    ------- Menu widgets --------------
-
-    _savePattern   <- builderGetObject builder castToMenuItem "savePattern"
-    _savePatternAs <- builderGetObject builder castToMenuItem "savePatternAs"
-    _openPattern   <- builderGetObject builder castToMenuItem "openPattern"
-    _runSettings   <- builderGetObject builder castToMenuItem "runSettings"
-    _quit          <- builderGetObject builder castToMenuItem "quit"
-    _cutCanvas     <- builderGetObject builder castToMenuItem "cutCanvas"
-    _copyCanvas    <- builderGetObject builder castToMenuItem "copyCanvas"
-    _pasteToCanvas <- builderGetObject builder castToMenuItem "pasteToCanvas"
-    _changeGridSize <- builderGetObject builder castToMenuItem "changeGridSize"
-    _setRule       <- builderGetObject builder castToMenuItem "setRule"
-    _goFaster      <- builderGetObject builder castToMenuItem "goFaster"
-    _goSlower      <- builderGetObject builder castToMenuItem "goSlower"
-    _clearPattern  <- builderGetObject builder castToMenuItem "clearPattern"
-    _clearSelection <- builderGetObject builder castToMenuItem "clearSelection"
-    _drawMode      <- builderGetObject builder castToMenuItem "drawMode"
-    _moveMode      <- builderGetObject builder castToMenuItem "moveMode"
-    _selectMode    <- builderGetObject builder castToMenuItem "selectMode"
-    _editSheet     <- builderGetObject builder castToMenuItem "editSheet"
-    _about         <- builderGetObject builder castToMenuItem "about"
-    _uman          <- builderGetObject builder castToMenuItem "uman"
-
-    ------- Main window widgets -------
-
-    _run           <- builderGetObject builder castToButton      "run"
-    _runIcon       <- builderGetObject builder castToImage       "runIcon"
-    _step          <- builderGetObject builder castToButton      "step"
-    _reset         <- builderGetObject builder castToButton      "reset"
-    _canvas        <- builderGetObject builder castToDrawingArea "canvas"
-    _generationLbl <- builderGetObject builder castToLabel       "generation"
-    _coordsLbl     <- builderGetObject builder castToLabel       "coords"
-    _delayLbl      <- builderGetObject builder castToLabel       "delay"
-    _drawopts      <- builderGetObject builder castToBox         "drawopts"
-    _curstate      <- builderGetObject builder castToComboBox    "curstate"
-
-    _curstatem <- listStoreNew [0, 1]
-    comboBoxSetModel _curstate (Just _curstatem)
-    cellLayoutClear _curstate
-    curstateRenderer <- cellRendererTextNew
-    cellLayoutPackStart _curstate curstateRenderer True
-    cellLayoutSetAttributes _curstate curstateRenderer _curstatem (pure . (cellText :=) . show)
-
-    ------- Set new rule dialog -------
-
-    _setRuleWindow <- builderGetObject builder castToWindow        "setRuleWindow"
-    _setRuleBtn    <- builderGetObject builder castToButton        "setRuleBtn"
-    _newRuleBuf    <- builderGetObject builder castToTextView      "newRuleView" >>= textViewGetBuffer
-    _alpacaLang    <- builderGetObject builder castToRadioMenuItem "alpacaLang"
-    _haskellLang   <- builderGetObject builder castToRadioMenuItem "haskellLang"
-    _saveRule      <- builderGetObject builder castToMenuItem      "saveRule"
-    _saveRuleAs    <- builderGetObject builder castToMenuItem      "saveRuleAs"
-    _openRule      <- builderGetObject builder castToMenuItem      "openRule"
-
-    ------- ALPACA Stylesheets dialog -------
-
-    _editSheetWindow       <- builderGetObject builder castToWindow   "editSheetWindow"
-    _openSheet             <- builderGetObject builder castToMenuItem "openSheet"
-
-    _saveSheet             <- builderGetObject builder castToMenuItem "saveSheet"
-    _saveSheetAs           <- builderGetObject builder castToMenuItem "saveSheetAs"
-    _sheetBuf              <- builderGetObject builder castToTextView "sheetView" >>= textViewGetBuffer
-    _editSheetWindowSetBtn <- builderGetObject builder castToButton   "editSheetWindowSetBtn"
-
-    ------- Settings dialog -----------
-
-    _settingsWindow        <- builderGetObject builder castToDialog            "settingsWindow"
-    _settingsCancelBtn     <- builderGetObject builder castToButton            "settingsCancelBtn"
-    _settingsOkBtn         <- builderGetObject builder castToButton            "settingsOkBtn"
-    _predefRulesDirChooser <- builderGetObject builder castToFileChooserButton "predefRulesDirChooser"
-    _userRulesDirChooser   <- builderGetObject builder castToFileChooserButton "userRulesDirChooser"
-    _numColsAdjustment     <- builderGetObject builder castToAdjustment        "numColsAdjustment"
-    _numRowsAdjustment     <- builderGetObject builder castToAdjustment        "numRowsAdjustment"
-
-    ------- New grid size dialog -----------
-    _newGridSizeDialog    <- builderGetObject builder castToDialog     "newGridSizeDialog"
-    _newNumColsAdjustment <- builderGetObject builder castToAdjustment "newNumColsAdjustment"
-    _newNumRowsAdjustment <- builderGetObject builder castToAdjustment "newNumRowsAdjustment"
-
-    let guiObjects = T.GuiObjects{..}
-
-    _settings   <- newIORef =<< readSettings _window
+    _settings   <- newIORef =<< readSettings (guiObjects ^. T.window)
     _existState <- do
         s <- getStdGen
         (numcols, numrows) <- getSettingFrom' T.gridSize _settings
@@ -182,12 +108,101 @@ main = do
 
     addStylesheetWindowHandlers app
 
-    _window `on` objectDestroy $ mainQuit
-    widgetShowAll _window
-    mainGUI
+    on (guiObjects ^. T.window) #destroy $ mainQuit
+    widgetShowAll (guiObjects ^. T.window)
+    G.main
 
 randomColors :: IO [(Double, Double, Double)]
 randomColors = fmap (([(1, 1, 1), (0, 0, 0)]++) . tuplize) $ replicateM 3 $ randomRs @Double (0, 1) <$> newStdGen
   where
     tuplize [(a:as), (b:bs), (c:cs)] = (a, b, c):tuplize [as, bs, cs]
     tuplize _ = error "ERROR in tuplize"
+
+buildUI :: BuildFn T.GuiObjects
+buildUI = do
+    _window <- getObject Window      "window"
+
+    ------- Menu widgets --------------
+
+    _savePattern   <- getObject MenuItem "savePattern"
+    _savePatternAs <- getObject MenuItem "savePatternAs"
+    _openPattern   <- getObject MenuItem "openPattern"
+    _runSettings   <- getObject MenuItem "runSettings"
+    _quit          <- getObject MenuItem "quit"
+    _cutCanvas     <- getObject MenuItem "cutCanvas"
+    _copyCanvas    <- getObject MenuItem "copyCanvas"
+    _pasteToCanvas <- getObject MenuItem "pasteToCanvas"
+    _changeGridSize <- getObject MenuItem "changeGridSize"
+    _setRule       <- getObject MenuItem "setRule"
+    _goFaster      <- getObject MenuItem "goFaster"
+    _goSlower      <- getObject MenuItem "goSlower"
+    _clearPattern  <- getObject MenuItem "clearPattern"
+    _clearSelection <- getObject MenuItem "clearSelection"
+    _drawMode      <- getObject MenuItem "drawMode"
+    _moveMode      <- getObject MenuItem "moveMode"
+    _selectMode    <- getObject MenuItem "selectMode"
+    _editSheet     <- getObject MenuItem "editSheet"
+    _about         <- getObject MenuItem "about"
+    _uman          <- getObject MenuItem "uman"
+
+    ------- Main window widgets -------
+
+    _run           <- getObject Button      "run"
+    _runIcon       <- getObject Image       "runIcon"
+    _step          <- getObject Button      "step"
+    _reset         <- getObject Button      "reset"
+    _canvas        <- getObject DrawingArea "canvas"
+    _generationLbl <- getObject Label       "generation"
+    _coordsLbl     <- getObject Label       "coords"
+    _delayLbl      <- getObject Label       "delay"
+    _drawopts      <- getObject Box         "drawopts"
+    _curstate      <- getObject ComboBox    "curstate"
+
+    _curstatem <- listStoreNew [gtypeInt]
+    liftIO $ do
+        forM_ [0,1] $ toGValue @Int32 >=> \x ->
+            listStoreInsertWithValuesv _curstatem (-1) [0] [x]
+        comboBoxSetModel _curstate (Just _curstatem)
+        cellLayoutClear _curstate
+        curstateRenderer <- cellRendererTextNew
+        cellLayoutPackStart _curstate curstateRenderer True
+        cellLayoutClearAttributes _curstate curstateRenderer
+        cellLayoutAddAttribute _curstate curstateRenderer "text" 0
+
+    ------- Set new rule dialog -------
+
+    _setRuleWindow <- getObject Window        "setRuleWindow"
+    _setRuleBtn    <- getObject Button        "setRuleBtn"
+    _newRuleBuf    <- getObject TextView      "newRuleView" >>= textViewGetBuffer
+    _alpacaLang    <- getObject RadioMenuItem "alpacaLang"
+    _haskellLang   <- getObject RadioMenuItem "haskellLang"
+    _saveRule      <- getObject MenuItem      "saveRule"
+    _saveRuleAs    <- getObject MenuItem      "saveRuleAs"
+    _openRule      <- getObject MenuItem      "openRule"
+
+    ------- ALPACA Stylesheets dialog -------
+
+    _editSheetWindow       <- getObject Window   "editSheetWindow"
+    _openSheet             <- getObject MenuItem "openSheet"
+
+    _saveSheet             <- getObject MenuItem "saveSheet"
+    _saveSheetAs           <- getObject MenuItem "saveSheetAs"
+    _sheetBuf              <- getObject TextView "sheetView" >>= textViewGetBuffer
+    _editSheetWindowSetBtn <- getObject Button   "editSheetWindowSetBtn"
+
+    ------- Settings dialog -----------
+
+    _settingsWindow        <- getObject Dialog            "settingsWindow"
+    _settingsCancelBtn     <- getObject Button            "settingsCancelBtn"
+    _settingsOkBtn         <- getObject Button            "settingsOkBtn"
+    _predefRulesDirChooser <- getObject FileChooserButton "predefRulesDirChooser"
+    _userRulesDirChooser   <- getObject FileChooserButton "userRulesDirChooser"
+    _numColsAdjustment     <- getObject Adjustment        "numColsAdjustment"
+    _numRowsAdjustment     <- getObject Adjustment        "numRowsAdjustment"
+
+    ------- New grid size dialog -----------
+    _newGridSizeDialog    <- getObject Dialog     "newGridSizeDialog"
+    _newNumColsAdjustment <- getObject Adjustment "newNumColsAdjustment"
+    _newNumRowsAdjustment <- getObject Adjustment "newNumRowsAdjustment"
+
+    return T.GuiObjects{..}

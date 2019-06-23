@@ -3,7 +3,7 @@
 
 module SettingsDialog (showSettingsDialog) where
 
-import Graphics.UI.Gtk
+import GI.Gtk
 import Lens.Micro hiding (set)
 
 import qualified Types as T
@@ -21,7 +21,7 @@ showSettingsDialog app = do
     _ <- getSetting (T.gridSize . _Just . _2) app >>= (fromIntegral <&> adjustmentSetValue (app ^. T.numRowsAdjustment))
 
     dialogRun (app ^. T.settingsWindow) >>= \case
-       ResponseUser 1 -> do  -- OK button
+       1 -> do  -- OK button
            _predefinedRulesDir <- fileChooserGetFilename (app ^. T.predefRulesDirChooser)
            _userRulesDir       <- fileChooserGetFilename (app ^. T.userRulesDirChooser)
 

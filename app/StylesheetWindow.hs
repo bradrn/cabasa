@@ -1,14 +1,20 @@
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedLabels    #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module StylesheetWindow (addStylesheetWindowHandlers) where
+
+import Prelude hiding (readFile, writeFile)
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef
 
 import qualified CA.ALPACA.Stylesheets as SS
-import Graphics.UI.Gtk
+import Data.Text (pack, unpack)
+import Data.Text.IO (readFile, writeFile)
+import GI.Gtk
 import Lens.Micro
 import System.FilePath
 
@@ -17,13 +23,13 @@ import qualified Types as T
 
 addStylesheetWindowHandlers :: T.Application -> IO ()
 addStylesheetWindowHandlers app = do
-    _ <- (app ^. T.editSheetWindow) `on` deleteEvent $ liftIO $ stylesheetWindowDeleteHandler app
+    _ <- on (app ^. T.editSheetWindow) #deleteEvent $ \_ -> liftIO $ stylesheetWindowDeleteHandler app
 
-    _ <- (app ^. T.editSheetWindowSetBtn) `on` buttonActivated $ setBtnHandler app
+    _ <- on (app ^. T.editSheetWindowSetBtn) #clicked $ setBtnHandler app
 
-    _ <- (app ^. T.saveSheetAs) `on` menuItemActivated $ saveSheetHandler app
-    _ <- (app ^. T.saveSheetAs) `on` menuItemActivated $ saveSheetAsHandler app
-    _ <- (app ^. T.openSheet) `on` menuItemActivated $ openSheetHandler app
+    _ <- on (app ^. T.saveSheetAs) #activate $ saveSheetHandler app
+    _ <- on (app ^. T.saveSheetAs) #activate $ saveSheetAsHandler app
+    _ <- on (app ^. T.openSheet)   #activate $ openSheetHandler app
     return ()
 
 stylesheetWindowDeleteHandler :: T.Application -> IO Bool
@@ -33,12 +39,12 @@ setBtnHandler :: T.Application -> IO ()
 setBtnHandler app = do
     (start, end) <- textBufferGetBounds (app ^. T.sheetBuf)
     sty <- textBufferGetText (app ^. T.sheetBuf) start end True
-    case SS.parseStylesheet sty of
+    case SS.parseStylesheet (unpack sty) of
         Left err ->
-            showMessageDialog (Just $ app ^. T.window)
-                              MessageError
-                              ButtonsOk
-                              ("Parse error:\n" ++ err)
+            showMessageDialog (app ^. T.window)
+                              MessageTypeError
+                              ButtonsTypeOk
+                              ("Parse error:\n" <> pack err)
                               (const $ return ())
         Right sty' -> T.modifyState app $ \(st :: T.ExistState' t) ->
             let state2color' :: t -> (Double, Double, Double)
@@ -76,18 +82,18 @@ writeCurrentSheet app fName = do
 openSheetHandler :: T.Application -> IO ()
 openSheetHandler app = void $
     withFileDialogChoice (getCSSFileChooser app) FileChooserActionOpen $ \_ fName ->
-        textBufferSetText (app ^. T.sheetBuf) =<< readFile fName
+        setTextBufferText (app ^. T.sheetBuf) =<< readFile fName
 
-getCSSFileChooser :: T.Application -> FileChooserAction -> IO FileChooserDialog
+getCSSFileChooser :: T.Application -> FileChooserAction -> IO FileChooserNative
 getCSSFileChooser app ac = do
-    fChooser <- fileChooserDialogNew
+    fChooser <- fileChooserNativeNew
         Nothing
         (Just $ app ^. T.editSheetWindow)
         ac
-        [("Cancel", ResponseCancel), ("OK", ResponseOk)]
+        Nothing Nothing
 
     cssFilter <- fileFilterNew
-    fileFilterSetName cssFilter "ALPACA Stylesheets files (*.css)"
+    fileFilterSetName cssFilter $ Just "ALPACA Stylesheets files (*.css)"
     fileFilterAddPattern cssFilter "*.css"
     fileChooserAddFilter fChooser cssFilter
 

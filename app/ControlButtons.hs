@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE OverloadedLabels #-}
 
 module ControlButtons (addControlButtonHandlers) where
 
@@ -10,7 +11,8 @@ import Data.Maybe (fromMaybe)
 import CA.Universe (evolveA)
 import Control.Monad.Random.Strict (runRand)
 import Data.Text (pack)
-import Graphics.UI.Gtk
+import Data.GI.Gtk.Threading (postGUISync, postGUIASync)
+import GI.Gtk
 import Lens.Micro
 
 import Utils
@@ -18,9 +20,9 @@ import qualified Types as T
 
 addControlButtonHandlers :: T.Application -> IO ()
 addControlButtonHandlers app = do
-    _ <- (app ^. T.step) `on` buttonActivated $ savePattern app >> runGen app postGUIAsync
-    _ <- (app ^. T.run) `on` buttonActivated $ runButtonHandler app
-    _ <- (app ^. T.reset) `on` buttonActivated $ resetButtonHandler app
+    _ <- on (app ^. T.step)  #clicked $ savePattern app >> runGen app postGUIASync
+    _ <- on (app ^. T.run)   #clicked $ runButtonHandler app
+    _ <- on (app ^. T.reset) #clicked $ resetButtonHandler app
     return ()
 
 runButtonHandler :: T.Application -> IO ()
@@ -28,14 +30,14 @@ runButtonHandler app = readIORef (app ^. T.runThread) >>= \case
     Just t -> do
         killThread t
         writeIORef (app ^. T.runThread) Nothing
-        imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") IconSizeButton
+        imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") $ param IconSizeButton
     Nothing -> do
         savePattern app
-        t <- forkIO $ forever $
+        t <- forkIO $ forever $ do
             runGen app postGUISync
-            >> readIORef (app ^. T.delay) >>= threadDelay
+            readIORef (app ^. T.delay) >>= threadDelay
         writeIORef (app ^. T.runThread) $ Just t
-        imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") IconSizeButton
+        imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") $ param IconSizeButton
 
 resetButtonHandler :: T.Application -> IO ()
 resetButtonHandler app = do
@@ -43,7 +45,7 @@ resetButtonHandler app = do
         Just t -> do
             killThread t
             writeIORef (app ^. T.runThread) Nothing
-            imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") IconSizeButton
+            imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play") $ param IconSizeButton
         Nothing -> return ()
     popPattern app
     widgetQueueDraw (app ^. T.canvas)

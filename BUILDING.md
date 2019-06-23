@@ -21,11 +21,11 @@ Instructions are given for each OS separately.
 
 ### Installing GTK
 
-Cabasa relies on the GTK GUI library.
+Cabasa relies on the GTK GUI library and its GObject Introspection bindings.
 To install, run the following command:
 
 ```
-> stack exec -- pacman -S mingw-w64-x86_64-gtk3 mingw-w64-x86_64-glade
+> stack exec -- pacman -S mingw-w64-x86_64-gtk3 mingw-w64-x86_64-glade mingw64/mingw-w64-x86_64-pkg-config mingw64/mingw-w64-x86_64-gobject-introspection
 ```
 
 ### Building the User Manual
@@ -48,7 +48,7 @@ Commands:
 After this, Cabasa may be build with the following command:
 
 ```
-> stack build
+> stack exec -- bash -c 'XDG_DATA_DIRS=/mingw64/share stack build'
 ```
 
 You may then run Cabasa with `stack exec cabasa`.
@@ -69,6 +69,8 @@ $ cd ../..
 > try changing the line `\usepackage{minted}` to `\usepackage[cache=false]{minted}` in [`data/doc/UserManual.tex`](data/doc/UserManual.tex).
 
 #### Building Cabasa
+
+**WARNING: This section is OUTDATED. It will be updated when I have some time to figure out how to build the current version of Cabasa on Ubuntu.**
 
 Run the following commands:
 

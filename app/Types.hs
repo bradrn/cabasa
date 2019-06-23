@@ -20,7 +20,7 @@ import GHC.Generics
 import CA.Universe
 import Control.Monad.Random.Strict (MonadIO, StdGen)
 import Data.Aeson.TH (deriveJSON, defaultOptions, fieldLabelModifier)
-import Graphics.UI.Gtk hiding (Settings, Point)
+import GI.Gtk hiding (Settings, Application)
 import Language.Haskell.TH.Syntax (mkName)
 import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
@@ -85,7 +85,7 @@ data GuiObjects = GuiObjects
     , _delayLbl              :: Label
     , _drawopts              :: Box
     , _curstate              :: ComboBox
-    , _curstatem             :: ListStore Int
+    , _curstatem             :: ListStore
     , _setRuleWindow         :: Window
     , _setRuleBtn            :: Button
     , _newRuleBuf            :: TextBuffer

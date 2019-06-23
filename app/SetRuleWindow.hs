@@ -1,14 +1,21 @@
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE MultiWayIf       #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE OverloadedLabels  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module SetRuleWindow (addSetRuleWindowHandlers) where
+
+import Prelude hiding (readFile, writeFile)
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef
 
-import Graphics.UI.Gtk
+import Data.Text (uncons, unpack)
+import Data.Text.IO (readFile, writeFile)
+import GI.Gtk
 import Lens.Micro
 import System.FilePath
 
@@ -17,11 +24,11 @@ import qualified Types as T
 
 addSetRuleWindowHandlers :: T.Application -> IO ()
 addSetRuleWindowHandlers app = do
-    _ <- (app ^. T.setRuleWindow) `on` deleteEvent $ liftIO $ setRuleWindowDeleteHandler app
-    _ <- (app ^. T.setRuleBtn) `on` buttonActivated $ setRuleBtnHandler app
-    _ <- (app ^. T.saveRule)   `on` menuItemActivated $ saveRule app
-    _ <- (app ^. T.saveRuleAs) `on` menuItemActivated $ saveRuleAs app
-    _ <- (app ^. T.openRule) `on` menuItemActivated $ openRuleHandler app
+    _ <- on (app ^. T.setRuleWindow) #deleteEvent $ \_ -> liftIO $ setRuleWindowDeleteHandler app
+    _ <- on (app ^. T.setRuleBtn)    #clicked  $ setRuleBtnHandler app
+    _ <- on (app ^. T.saveRule)      #activate $ saveRule app
+    _ <- on (app ^. T.saveRuleAs)    #activate $ saveRuleAs app
+    _ <- on (app ^. T.openRule)      #activate $ openRuleHandler app
     return ()
 
 setRuleWindowDeleteHandler :: T.Application -> IO Bool
@@ -30,11 +37,11 @@ setRuleWindowDeleteHandler app = do
         Just _  -> pure ()
         Nothing ->
             showMessageDialog
-                (Just (app ^. T.setRuleWindow))
-                MessageQuestion
-                ButtonsYesNo
+                (app ^. T.setRuleWindow)
+                MessageTypeQuestion
+                ButtonsTypeYesNo
                 "Do you want to save your changes?" $ \case
-                    ResponseYes -> menuItemEmitActivate (app ^. T.saveRuleAs)
+                    ResponseTypeYes -> menuItemActivate (app ^. T.saveRuleAs)
                     _ -> pure ()
     widgetHide (app ^. T.setRuleWindow)
     return True
@@ -42,9 +49,9 @@ setRuleWindowDeleteHandler app = do
 setRuleBtnHandler :: T.Application -> IO ()
 setRuleBtnHandler app = do
     (start, end) <- textBufferGetBounds (app ^. T.newRuleBuf)
-    text <- textBufferGetText @_ @String (app ^. T.newRuleBuf) start end True
+    text <- textBufferGetText (app ^. T.newRuleBuf) start end True
     ruleType <- getCurrentLang app
-    setCurrentRule app Nothing text ruleType
+    setCurrentRule app Nothing (unpack text) ruleType
 
 saveRule :: T.Application -> IO ()
 saveRule app =
@@ -62,16 +69,18 @@ saveRuleAs app = do
                     -- As we know that there are only two filters, the first
                     -- character of the filter offers a useful heuristic to
                     -- determine the file type
-                    ('A':_) -> fName -<.> "alp"
-                    ('H':_) -> fName -<.> "hs"
-                    _       -> fName
-                Nothing     -> return fName
+                    Just (uncons -> Just (x, _)) -> case x of
+                        'A' -> fName -<.> "alp"
+                        'H' -> fName -<.> "hs"
+                        _   -> fName
+                    _ -> fName
+                Nothing -> return fName
             writeCurrentRule app fName'
 
 writeCurrentRule :: T.Application -> FilePath -> IO ()
 writeCurrentRule app fName = do
     (start, end) <- textBufferGetBounds (app ^. T.newRuleBuf)
-    text <- textBufferGetText @_ @String (app ^. T.newRuleBuf) start end True
+    text <- textBufferGetText (app ^. T.newRuleBuf) start end True
 
     writeFile fName text
     writeIORef (app ^. T.currentRulePath) (Just fName)
@@ -81,7 +90,7 @@ openRuleHandler app =
     void $
         withFileDialogChoice (getRuleFileChooser app Nothing) FileChooserActionOpen $ const $ \fName -> do
             ruleText <- readFile fName
-            textBufferSetText (app ^. T.newRuleBuf) ruleText
+            setTextBufferText (app ^. T.newRuleBuf) ruleText
             case takeExtension fName of
                 ".alp" -> checkMenuItemSetActive (app ^. T.alpacaLang)  True
                 ".hs"  -> checkMenuItemSetActive (app ^. T.haskellLang) True

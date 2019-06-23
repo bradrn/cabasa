@@ -1,6 +1,10 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedLabels  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Canvas (addCanvasHandlers) where
 
@@ -9,11 +13,20 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Bifunctor (first)
 import Data.Foldable (for_)
 import Data.Functor (($>))
+import Data.Int (Int32)
 import Data.IORef
+import Foreign.Ptr (castPtr)
 
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.Array (array, assocs, bounds)
+import Data.GI.Base.Attributes
+import Data.Text (pack)
 import Graphics.Rendering.Cairo hiding (clip)
-import Graphics.UI.Gtk hiding (Point, rectangle, cellWidth, cellHeight)
+import Graphics.Rendering.Cairo.Internal (Render(runRender))
+import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
+import qualified GI.Cairo
+import GI.Gdk hiding (Point)
+import GI.Gtk
 import Lens.Micro
 
 import CA.Universe
@@ -24,28 +37,31 @@ addCanvasHandlers :: T.Application -> IO ()
 addCanvasHandlers app = do
     let canvas' = app ^. T.canvas  -- because we use this field so much
     widgetAddEvents canvas'
-        [ ButtonPressMask
-        , ButtonReleaseMask
-        , ButtonMotionMask
-        , PointerMotionMask
-        , ScrollMask
+        [ EventMaskButtonPressMask
+        , EventMaskButtonReleaseMask
+        , EventMaskButtonMotionMask
+        , EventMaskPointerMotionMask
+        , EventMaskScrollMask
         ]
 
-    _ <- canvas' `on` draw $ T.withState app $ \state -> do
+    _ <- on canvas' #draw $ \context -> T.withState app $ \state -> do
         let renderFn = state ^. T.state2color
             currentPattern' = renderFn <$> state ^. T.currentPattern . _1
         pos'       <- liftIO $ readIORef (app ^. T.pos)
         selection' <- liftIO $ readIORef (app ^. T.selection)
         pasteSelectionOverlay' <- liftIO $ readIORef (app ^. T.pasteSelectionOverlay)
-        renderUniverse canvas' currentPattern' pos' selection' pasteSelectionOverlay'
+        -- Carry out the rendering
+        renderWithContext context $
+            renderUniverse canvas' currentPattern' pos' selection' pasteSelectionOverlay'
+        return True
 
-    _ <- canvas' `on` buttonPressEvent  $ canvasMouseHandler True app
-    _ <- canvas' `on` motionNotifyEvent $ canvasMouseHandler False app
-    _ <- canvas' `on` buttonReleaseEvent $ liftIO $ writeIORef (app ^. T.lastPoint) Nothing $> True
+    _ <- on canvas' #buttonPressEvent  $ canvasMouseHandler True app
+    _ <- on canvas' #motionNotifyEvent $ canvasMouseHandler False app
+    _ <- on canvas' #buttonReleaseEvent $ \_ -> liftIO $ writeIORef (app ^. T.lastPoint) Nothing $> True
 
-    _ <- canvas' `on` scrollEvent $ zoom app
+    _ <- on canvas' #scrollEvent $ zoom app
 
-    _ <- (app ^. T.clearPattern) `on` menuItemActivated $ do
+    _ <- on (app ^. T.clearPattern) #activate $ do
         modifyGeneration app (const 0)
         T.modifyStateM app $ \state -> do
             let defGrid = state ^. T.defaultPattern
@@ -55,10 +71,15 @@ addCanvasHandlers app = do
                            & (T.currentPattern . _1) .~ defGrid
         widgetQueueDraw canvas'
 
-    _ <- (app ^. T.clearSelection) `on` menuItemActivated $
+    _ <- on (app ^. T.clearSelection) #activate $
         writeIORef (app ^. T.selection) Nothing >> widgetQueueDraw canvas'
 
     return ()
+  where
+    -- from https://github.com/haskell-gi/haskell-gi/blob/36e4c4fb0df9e80d3c9b2f5999b65128e20317fb/examples/advanced/Cairo.hs#L297
+    renderWithContext :: GI.Cairo.Context -> Render () -> IO ()
+    renderWithContext ct r = withManagedPtr ct $ \p ->
+                            runReaderT (runRender r) (Cairo (castPtr p))
 
 data MouseGridPos = MouseGridPos
     { gridPos :: Point
@@ -69,9 +90,11 @@ data MouseGridPos = MouseGridPos
       -- Cabasa grid view
     } deriving (Show)
 
-getMousePos :: HasCoordinates t => T.Pos -> EventM t MouseGridPos
-getMousePos T.Pos{..} = do
-    (canvasX, canvasY) <- eventCoordinates
+getMousePos :: ( AttrGetC i1 ev "x" Double
+               , AttrGetC i2 ev "y" Double
+               ) => ev -> T.Pos -> IO MouseGridPos
+getMousePos ev T.Pos{..} = do
+    (canvasX, canvasY) <- (,) <$> get ev #x <*> get ev #y
     let viewX = floor $ canvasX / _cellWidth
         viewY = floor $ canvasY / _cellHeight
         viewPos = Point viewX viewY
@@ -92,24 +115,28 @@ modifyCellPos fCell fX fY app = do
                                . over T.topYCoord  fY
     widgetQueueDraw (app ^. T.canvas)
 
-zoom :: T.Application -> EventM EScroll Bool
-zoom app = do
-    MouseGridPos{viewPos = Point viewX viewY} <- getMousePos =<< liftIO (readIORef (app ^. T.pos))
-    eventScrollDirection >>= \case
-        ScrollUp   -> liftIO $ modifyCellPos (*2) (+ (viewX `quot` 2)) (+ (viewY `quot` 2)) app $> True
-        ScrollDown -> liftIO $ modifyCellPos (/2) (subtract viewX)     (subtract viewY)     app $> True
-        _          -> return False
+zoom :: T.Application -> EventScroll -> IO Bool
+zoom app ev = do
+    MouseGridPos{viewPos = Point viewX viewY} <- getMousePos ev =<< liftIO (readIORef (app ^. T.pos))
+    getEventScrollDirection ev >>= \case
+        ScrollDirectionUp   -> liftIO $ modifyCellPos (*2) (+ (viewX `quot` 2)) (+ (viewY `quot` 2)) app $> True
+        ScrollDirectionDown -> liftIO $ modifyCellPos (/2) (subtract viewX)     (subtract viewY)     app $> True
+        _                   -> return False
 
-canvasMouseHandler :: (HasCoordinates t, HasModifier t)
+canvasMouseHandler :: ( AttrGetC i1 ev "state" [ModifierType]
+                      , AttrGetC i2 ev "x" Double
+                      , AttrGetC i3 ev "y" Double
+                      )
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
-                   -> T.Application -> EventM t Bool
-canvasMouseHandler fromButtonPress app = do
-    ms <- eventModifierMouse
-    let isButtonDown = fromButtonPress || (Button1 `elem` ms)
+                   -> T.Application
+                   -> ev -> IO Bool
+canvasMouseHandler fromButtonPress app ev = do
+    ms <- get ev #state
+    let isButtonDown = fromButtonPress || (ModifierTypeButton1Mask `elem` ms)
     pos' <- liftIO $ readIORef (app ^. T.pos)
     MouseGridPos{ viewPos = viewP@(Point viewX viewY)
                 , gridPos = gridP@(Point gridX gridY)
-                } <- getMousePos pos'
+                } <- getMousePos ev pos'
     curMode <- liftIO $ readIORef (app ^. T.currentMode)
     liftIO $ do
         lastPoint' <- readIORef (app ^. T.lastPoint)
@@ -117,10 +144,10 @@ canvasMouseHandler fromButtonPress app = do
             case curMode of
                 T.DrawMode -> do
                     stnum <- comboBoxGetActiveIter (app ^. T.curstate) >>= \case
-                        Nothing -> return 0
-                        Just iter -> listStoreGetValue (app ^. T.curstatem) $ listStoreIterToIndex iter
+                        (False, _) -> return 0
+                        (True, iter) -> treeModelGetValue (app ^. T.curstatem) iter 0 >>= fromGValue @Int32
                     T.modifyState app $ \state ->
-                        let newst = (state ^. T.states) !! stnum
+                        let newst = (state ^. T.states) !! fromIntegral stnum
                         in state & (T.currentPattern . _1) %~ modifyPoint gridP (const newst)
                 T.MoveMode -> case lastPoint' of
                     Nothing -> return ()
@@ -158,7 +185,7 @@ canvasMouseHandler fromButtonPress app = do
                                 widgetQueueDraw (app ^. T.canvas)
                 _ -> return ()
         labelSetText (app ^. T.coordsLbl) $
-            "(" ++ show (getCoord gridX) ++ "," ++ show (getCoord gridY) ++ ")"
+            "(" <> pack (show $ getCoord gridX) <> "," <> pack (show $ getCoord gridY) <> ")"
     return True
 
 -- | Overwrite all points of one 'Universe' with another, displacing
@@ -177,7 +204,7 @@ mergeAtPoint (Point x y) (Universe new) (Universe old) =
                 Nothing -> a
                 Just val' -> (i, val')
 
-renderUniverse :: WidgetClass widget
+renderUniverse :: IsWidget widget
                => widget
                -> Universe (Double, Double, Double)
                -> T.Pos

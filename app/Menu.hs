@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedLabels    #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -14,7 +16,8 @@ import Data.List (find)
 import Data.Maybe (isJust)
 
 import qualified CA.Format.MCell as MC
-import Graphics.UI.Gtk hiding (Point)
+import Data.Text (pack)
+import GI.Gtk
 import Lens.Micro hiding (set)
 import System.FilePath ((</>), takeExtension, takeBaseName, (-<.>))
 import System.Directory (doesDirectoryExist, listDirectory)
@@ -31,39 +34,39 @@ import Paths_cabasa
 
 addMenuHandlers :: T.Application -> IO ()
 addMenuHandlers app = do
-    _ <- (app ^. T.drawMode) `on` menuItemActivated $
+    _ <- on (app ^. T.drawMode) #activate $
         writeIORef (app ^. T.currentMode) T.DrawMode >> widgetSetSensitive (app ^. T.drawopts) True
-    _ <- (app ^. T.moveMode) `on` menuItemActivated $
+    _ <- on (app ^. T.moveMode) #activate $
         writeIORef (app ^. T.currentMode) T.MoveMode >> widgetSetSensitive (app ^. T.drawopts) False
-    _ <- (app ^. T.selectMode) `on` menuItemActivated $
+    _ <- on (app ^. T.selectMode) #activate $
         writeIORef (app ^. T.currentMode) T.SelectMode >> widgetSetSensitive (app ^. T.drawopts) False
 
-    _ <- (app ^. T.savePattern)   `on` menuItemActivated $ savePattern app
-    _ <- (app ^. T.savePatternAs) `on` menuItemActivated $ savePatternAs app
-    _ <- (app ^. T.openPattern)   `on` menuItemActivated $ openPattern app
+    _ <- on (app ^. T.savePattern)   #activate $ savePattern app
+    _ <- on (app ^. T.savePatternAs) #activate $ savePatternAs app
+    _ <- on (app ^. T.openPattern)   #activate $ openPattern app
 
-    _ <- (app ^. T.about) `on` menuItemActivated $ showAboutDialog app
-    _ <- (app ^. T.uman)  `on` menuItemActivated $ showUserManual
+    _ <- on (app ^. T.about) #activate $ showAboutDialog app
+    _ <- on (app ^. T.uman)  #activate $ showUserManual
 
-    _ <- (app ^. T.copyCanvas)    `on` menuItemActivated $ copyCanvas app
-    _ <- (app ^. T.cutCanvas)     `on` menuItemActivated $ cutCanvas  app
-    _ <- (app ^. T.pasteToCanvas) `on` menuItemActivated $
+    _ <- on (app ^. T.copyCanvas)    #activate $ copyCanvas app
+    _ <- on (app ^. T.cutCanvas)     #activate $ cutCanvas  app
+    _ <- on (app ^. T.pasteToCanvas) #activate $
         readIORef (app ^. T.selection) >>= \sel ->
             when (isJust sel) $ modifyIORef (app ^. T.currentMode) T.PastePendingMode
 
-    _ <- (app ^. T.changeGridSize) `on` menuItemActivated $ changeGridSize app
+    _ <- on (app ^. T.changeGridSize) #activate $ changeGridSize app
 
-    _ <- (app ^. T.setRule)   `on` menuItemActivated $ widgetShowAll (app ^. T.setRuleWindow)
-    _ <- (app ^. T.editSheet) `on` menuItemActivated $ widgetShowAll (app ^. T.editSheetWindow)
+    _ <- on (app ^. T.setRule)   #activate $ widgetShowAll (app ^. T.setRuleWindow)
+    _ <- on (app ^. T.editSheet) #activate $ widgetShowAll (app ^. T.editSheetWindow)
 
     let when' p f = \x -> if p x then f x else x
 
-    _ <- (app ^. T.goFaster) `on` menuItemActivated $ modifyDelay app (when' (>100) (`quot` 10))
-    _ <- (app ^. T.goSlower) `on` menuItemActivated $ modifyDelay app (* 10)
+    _ <- on (app ^. T.goFaster) #activate $ modifyDelay app (when' (>100) (`quot` 10))
+    _ <- on (app ^. T.goSlower) #activate $ modifyDelay app (* 10)
 
-    _ <- (app ^. T.runSettings) `on` menuItemActivated $ showSettingsDialog app
+    _ <- on (app ^. T.runSettings) #activate $ showSettingsDialog app
 
-    _ <- (app ^. T.quit) `on` menuItemActivated $ mainQuit
+    _ <- on (app ^. T.quit) #activate $ mainQuit
 
     return ()
 
@@ -72,7 +75,7 @@ modifyDelay app fn = do
     old <- readIORef (app ^. T.delay)
     let new = fn old
     writeIORef (app ^. T.delay) new
-    labelSetText (app ^. T.delayLbl) $ show new
+    labelSetText (app ^. T.delayLbl) $ pack $ show new
 
 copyCanvas :: T.Application -> IO ()
 copyCanvas app = readIORef (app ^. T.selection) >>= \case
@@ -116,8 +119,8 @@ changeGridSize app = do
         let (cols, rows) = size (state ^. (T.currentPattern . _1))
         adjustmentSetValue (app ^. T.newNumColsAdjustment) $ fromIntegral cols
         adjustmentSetValue (app ^. T.newNumRowsAdjustment) $ fromIntegral rows
-        dialogRun (app ^. T.newGridSizeDialog) >>= \case
-           ResponseUser 1 -> do  -- OK button
+        U.dialogRun' (app ^. T.newGridSizeDialog) >>= \case
+           AnotherResponseType 1 -> do  -- OK button
                newCols <- floor <$> adjustmentGetValue (app ^. T.newNumColsAdjustment)
                newRows <- floor <$> adjustmentGetValue (app ^. T.newNumRowsAdjustment)
                return $ state & (T.currentPattern . _1) %~
@@ -201,17 +204,17 @@ openPattern app = void $
     U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionOpen $ const $ \fName -> do
         pat <- readFile fName
         case MC.decodeMCell pat of
-            Left err -> U.showMessageDialog (Just $ app ^. T.window) MessageError ButtonsOk
-                ("Could not decode file! The error was:\n" ++ err)
+            Left err -> U.showMessageDialog (app ^. T.window) MessageTypeError ButtonsTypeOk
+                ("Could not decode file! The error was:\n" <> pack err)
                 (const $ pure ())
             -- We rename one field to avoid shadowing Hint.Interop.rule
             Right MC.MCell{MC.rule=rule'mc, ..} -> do
                 whenMaybeM rule'mc $ \rule' ->
                     whenM (maybe True (rule'==) <$> (app & T.getCurrentRuleName)) $ do
-                        U.showMessageDialog (Just $ app ^. T.window) MessageInfo ButtonsYesNo
+                        U.showMessageDialog (app ^. T.window) MessageTypeInfo ButtonsTypeYesNo
                             "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
                             $ \case
-                            ResponseYes -> do
+                            ResponseTypeYes -> do
                                 predefDir <- getSetting' T.predefinedRulesDir app
                                 userDir   <- getSetting' T.userRulesDir       app
 
@@ -226,7 +229,7 @@ openPattern app = void $
                                             _ -> T.ALPACA -- guess
                                     U.setCurrentRule app (Just file) text ruleType
                                     -- Set this rule's text in the Set Rule dialog
-                                    textBufferSetText (app ^. T.newRuleBuf) text
+                                    setTextBufferText (app ^. T.newRuleBuf) $ pack text
                             _ -> return ()
 
                 T.modifyState app $ \state ->
@@ -247,10 +250,10 @@ openPattern app = void $
     findIfNotSelected _    (Just r) = pure $ Just r
 
     findNewRule :: String -> IO (Maybe FilePath)
-    findNewRule name = U.showMessageDialog (Just $ app ^. T.window) MessageWarning ButtonsYesNo
-        ("Could not find the specified rule '" ++ name ++ "'.\nDo you want to find this rule manually?")
+    findNewRule name = U.showMessageDialog (app ^. T.window) MessageTypeWarning ButtonsTypeYesNo
+        ("Could not find the specified rule '" <> pack name <> "'.\nDo you want to find this rule manually?")
         $ \case
-        ResponseYes -> U.withFileDialogChoice (U.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
+        ResponseTypeYes -> U.withFileDialogChoice (U.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
         _ -> return Nothing
 
     listDirectories :: [FilePath] -> IO [FilePath]
@@ -265,13 +268,13 @@ showAboutDialog :: T.Application -> IO ()
 showAboutDialog app = do
     a <- aboutDialogNew
     set a
-        [ windowTransientFor     := app ^. T.window
-        , aboutDialogProgramName := "Cabasa"
-        , aboutDialogName        := "Cabasa"
-        , aboutDialogVersion     := "0.1"
-        , aboutDialogComments    := "An application for the simulation of arbitrary 2D cellular automata"
-        , aboutDialogAuthors     := ["Brad Neimann"]
-        , aboutDialogCopyright   := "© Brad Neimann 2017-2018"
+        [ #transientFor := app ^. T.window
+        , #programName  := "Cabasa"
+        , #name         := "Cabasa"
+        , #version      := "0.1"
+        , #comments     := "An application for the simulation of arbitrary 2D cellular automata"
+        , #authors      := ["Brad Neimann"]
+        , #copyright    := "© Brad Neimann 2017-2018"
         ]
     _ <- dialogRun a
     widgetDestroy a
