@@ -20,7 +20,7 @@ import qualified Types as T
 
 addControlButtonHandlers :: T.Application -> IO ()
 addControlButtonHandlers app = do
-    _ <- on (app ^. T.step)  #clicked $ savePattern app >> runGen app postGUIASync
+    _ <- on (app ^. T.step)  #clicked $ savePattern app >> runGen app
     _ <- on (app ^. T.run)   #clicked $ runButtonHandler app
     _ <- on (app ^. T.reset) #clicked $ resetButtonHandler app
     return ()
@@ -34,7 +34,7 @@ runButtonHandler app = readIORef (app ^. T.runThread) >>= \case
     Nothing -> do
         savePattern app
         t <- forkIO $ forever $ do
-            runGen app postGUISync
+            runGen app
             readIORef (app ^. T.delay) >>= threadDelay
         writeIORef (app ^. T.runThread) $ Just t
         imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") $ param IconSizeButton
@@ -68,15 +68,11 @@ popPattern app = do
                                & (T.currentPattern . _1) .~ fst prev
             Nothing -> pure state
 
--- When runGen is called from the main thread, we want to use
--- postGUIAsync, but when it's called from any other thread, we want to
--- use postGUISync - so we provide an argument to select the function.
--- See http://gtk2hs-users.narkive.com/QvCQw4q3/use-of-postguisync-within-the-main-gtk-thread
-runGen :: T.Application -> (IO () -> IO ()) -> IO ()
-runGen app postFn = do
+runGen :: T.Application -> IO ()
+runGen app = do
     T.modifyState app $ \state ->
         let r = state ^. T.rule
             (g, s) = state ^. T.currentPattern
         in state & T.currentPattern .~ runRand (evolveA r g) s
     modifyGeneration app (+1)
-    postFn (widgetQueueDraw $ app ^. T.canvas)
+    postGUIASync (widgetQueueDraw $ app ^. T.canvas)
