@@ -25,6 +25,7 @@ import CA.Core (peek, evolve)
 import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (render, fromList, size, clipInside, Bounds(..))
 import Control.Monad.App
+import Control.Monad.App.Class
 import qualified Types as T
 
 addMenuHandlers :: T.Application -> IO ()

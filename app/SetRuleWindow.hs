@@ -18,6 +18,7 @@ import Lens.Micro
 import System.FilePath
 
 import Control.Monad.App
+import Control.Monad.App.Class
 import qualified Types as T
 
 addSetRuleWindowHandlers :: T.Application -> IO ()

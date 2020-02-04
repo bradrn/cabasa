@@ -37,6 +37,7 @@ executable cabasa
   other-modules:       Paths_cabasa
                      , Canvas
                      , Control.Monad.App
+                     , Control.Monad.App.Class
                      , ControlButtons
                      , Hint
                      , Menu

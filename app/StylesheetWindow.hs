@@ -18,6 +18,7 @@ import GI.Gtk
 import Lens.Micro
 
 import Control.Monad.App
+import Control.Monad.App.Class
 import qualified Types as T
 
 addStylesheetWindowHandlers :: T.Application -> IO ()

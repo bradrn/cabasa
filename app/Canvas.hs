@@ -24,6 +24,7 @@ import Lens.Micro
 
 import CA.Universe
 import Control.Monad.App
+import Control.Monad.App.Class
 import qualified Types as T
 
 addCanvasHandlers :: T.Application -> IO ()
