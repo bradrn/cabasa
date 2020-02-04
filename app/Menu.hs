@@ -9,126 +9,98 @@
 
 module Menu (addMenuHandlers) where
 
-import Control.Monad (when, void, filterM)
+import Control.Monad (when, void)
+import Data.Bifunctor (first)
 import Data.Ix (range)
 import Data.IORef
-import Data.List (find)
 import Data.Maybe (isJust)
 
 import qualified CA.Format.MCell as MC
-import Data.Text (pack)
+import Data.Text (pack, unpack)
 import GI.Gtk
 import Lens.Micro hiding (set)
-import System.FilePath ((</>), takeExtension, takeBaseName, (-<.>))
-import System.Directory (doesDirectoryExist, listDirectory)
-import System.Process (callCommand)
+import System.FilePath (takeExtension, (-<.>))
 
 import CA.Core (peek, evolve)
 import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (render, fromList, size, clipInside, Bounds(..))
-import qualified Utils as U
-import Settings (getSetting')
-import SettingsDialog
+import Control.Monad.App
 import qualified Types as T
-import Paths_cabasa
 
 addMenuHandlers :: T.Application -> IO ()
 addMenuHandlers app = do
-    _ <- on (app ^. T.drawMode) #activate $
-        writeIORef (app ^. T.currentMode) T.DrawMode >> widgetSetSensitive (app ^. T.drawopts) True
-    _ <- on (app ^. T.moveMode) #activate $
-        writeIORef (app ^. T.currentMode) T.MoveMode >> widgetSetSensitive (app ^. T.drawopts) False
-    _ <- on (app ^. T.selectMode) #activate $
-        writeIORef (app ^. T.currentMode) T.SelectMode >> widgetSetSensitive (app ^. T.drawopts) False
+    _ <- on (app ^. T.drawMode) #activate   $ flip runApp app $ setMode T.DrawMode
+    _ <- on (app ^. T.moveMode) #activate   $ flip runApp app $ setMode T.MoveMode
+    _ <- on (app ^. T.selectMode) #activate $ flip runApp app $ setMode T.SelectMode
 
-    _ <- on (app ^. T.savePattern)   #activate $ savePattern app
-    _ <- on (app ^. T.savePatternAs) #activate $ savePatternAs app
-    _ <- on (app ^. T.openPattern)   #activate $ openPattern app
+    _ <- on (app ^. T.savePattern)   #activate $ runApp savePattern app
+    _ <- on (app ^. T.savePatternAs) #activate $ runApp savePatternAs app
+    _ <- on (app ^. T.openPattern)   #activate $ runApp openPattern app
 
-    _ <- on (app ^. T.about) #activate $ showAboutDialog app
-    _ <- on (app ^. T.uman)  #activate $ showUserManual
+    _ <- on (app ^. T.about) #activate $ runApp showAboutDialog app
+    _ <- on (app ^. T.uman)  #activate $ runApp showUserManual app
 
-    _ <- on (app ^. T.copyCanvas)    #activate $ copyCanvas app
-    _ <- on (app ^. T.cutCanvas)     #activate $ cutCanvas  app
+    _ <- on (app ^. T.copyCanvas)    #activate $ runApp copyCanvas app
+    _ <- on (app ^. T.cutCanvas)     #activate $ runApp cutCanvas  app
     _ <- on (app ^. T.pasteToCanvas) #activate $
         readIORef (app ^. T.selection) >>= \sel ->
             when (isJust sel) $ modifyIORef (app ^. T.currentMode) T.PastePendingMode
 
-    _ <- on (app ^. T.changeGridSize) #activate $ changeGridSize app
+    _ <- on (app ^. T.changeGridSize) #activate $ runApp changeGridSize app
 
     _ <- on (app ^. T.setRule)   #activate $ widgetShowAll (app ^. T.setRuleWindow)
     _ <- on (app ^. T.editSheet) #activate $ widgetShowAll (app ^. T.editSheetWindow)
 
     let when' p f = \x -> if p x then f x else x
 
-    _ <- on (app ^. T.goFaster) #activate $ modifyDelay app (when' (>100) (`quot` 10))
-    _ <- on (app ^. T.goSlower) #activate $ modifyDelay app (* 10)
+    _ <- on (app ^. T.goFaster) #activate $ flip runApp app $ modifyDelay (when' (>100) (`quot` 10))
+    _ <- on (app ^. T.goSlower) #activate $ flip runApp app $ modifyDelay (* 10)
 
-    _ <- on (app ^. T.runSettings) #activate $ showSettingsDialog app
+    _ <- on (app ^. T.runSettings) #activate $ runApp showSettingsDialog app
 
     _ <- on (app ^. T.quit) #activate $ mainQuit
 
     return ()
 
-modifyDelay :: T.Application -> (Int -> Int) -> IO ()
-modifyDelay app fn = do
-    old <- readIORef (app ^. T.delay)
-    let new = fn old
-    writeIORef (app ^. T.delay) new
-    labelSetText (app ^. T.delayLbl) $ pack $ show new
-
-copyCanvas :: T.Application -> IO ()
-copyCanvas app = readIORef (app ^. T.selection) >>= \case
+copyCanvas :: MonadApp m => m ()
+copyCanvas = getSelection >>= \case
     Nothing -> pure ()    -- Can't copy when there's no selection!
-    Just ps -> doCopy ps app
+    Just ps -> doCopy ps
 
-cutCanvas :: T.Application -> IO ()
-cutCanvas app = readIORef (app ^. T.selection) >>= \case
+cutCanvas :: MonadApp m => m ()
+cutCanvas = getSelection >>= \case
     Nothing -> pure ()    -- Can't cut when there's no selection!
     Just ps@(Point x1 y1, Point x2 y2) ->
         let lo = Point (min x1 x2) (min y1 y2)
             hi = Point (max x1 x2) (max y1 y2)
             inSelPs = range (lo,hi)
         in do
-            doCopy ps app
-            T.modifyState app $ \state ->
-                let def = state ^. T.defaultVal
-                in state & (T.currentPattern . _1) %~ evolve
-                    (\p val ->
-                         if p `elem` inSelPs
-                         then def p
-                         else peek p val)
-            widgetQueueDraw (app ^. T.canvas)
+            doCopy ps
+            getOps >>= \case
+                Ops{..} -> modifyPattern $ curry $ first $ evolve $
+                    \p val ->
+                        if p `elem` inSelPs
+                        then defaultVal p
+                        else peek p val
 
-doCopy :: (Point, Point)  -- ^ Selection
-       -> T.Application -> IO ()
-doCopy (Point x1 y1, Point x2 y2) app =
-    T.modifyState app $ \state ->
-        let (grid, _) = state ^. T.currentPattern
-            (_, vals) = clipInside grid Bounds
+doCopy :: MonadApp m
+       => (Point, Point)  -- ^ Selection
+       -> m ()
+doCopy (Point x1 y1, Point x2 y2) = getOps >>= \case
+    Ops{..} ->
+        let (_, vals) = clipInside getPattern Bounds
                 { boundsLeft   = min x1 x2
                 , boundsRight  = max x1 x2
                 , boundsTop    = min y1 y2
                 , boundsBottom = max y1 y2
                 }
-        in state & T.clipboardContents .~ (Just $ fromList vals)
+        in setClipboard (Just $ fromList vals)
 
-changeGridSize :: T.Application -> IO ()
-changeGridSize app = do
-    T.modifyStateM app $ \state -> do
-        let (cols, rows) = size (state ^. (T.currentPattern . _1))
-        adjustmentSetValue (app ^. T.newNumColsAdjustment) $ fromIntegral cols
-        adjustmentSetValue (app ^. T.newNumRowsAdjustment) $ fromIntegral rows
-        U.dialogRun' (app ^. T.newGridSizeDialog) >>= \case
-           AnotherResponseType 1 -> do  -- OK button
-               newCols <- floor <$> adjustmentGetValue (app ^. T.newNumColsAdjustment)
-               newRows <- floor <$> adjustmentGetValue (app ^. T.newNumRowsAdjustment)
-               return $ state & (T.currentPattern . _1) %~
-                   (changeGridTo (Coord newCols, Coord newRows)
-                                   (state ^. T.defaultVal))
-           _ -> pure state  -- Don't change state
-    widgetHide (app ^. T.newGridSizeDialog)
-    widgetQueueDraw (app ^. T.canvas)
+changeGridSize :: MonadApp m => m ()
+changeGridSize = getOps >>= \case
+    Ops{..} ->
+        runGridSizeDialog (size getPattern) $ \cols rows ->
+            modifyPattern $ curry $ first $ changeGridTo (cols, rows) defaultVal
  where
    changeGridTo :: forall a. (Coord 'X, Coord 'Y) -> (Point -> a) -> Universe a -> Universe a
    changeGridTo (newCols, newRows) def u =
@@ -166,129 +138,59 @@ changeGridSize app = do
                            [0..width] <&> \col -> def (Point col row)
                    in u' ++ newRowVals
 
-savePattern :: T.Application -> IO ()
-savePattern app =
-    readIORef (app ^. T.currentPatternPath) >>= \case
-        Nothing   -> savePatternAs app
-        Just path -> writeCurrentPattern app path
+savePattern :: MonadApp m => m ()
+savePattern = getCurrentPatternPath >>= \case
+    Nothing   -> savePatternAs
+    Just path -> writeCurrentPattern path
 
-savePatternAs :: T.Application -> IO ()
-savePatternAs app = void $
-    U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionSave $
-        const $ writeCurrentPattern app
+savePatternAs :: MonadApp m => m ()
+savePatternAs = void $ withPatternFileDialog SaveFile $ const writeCurrentPattern
 
-writeCurrentPattern :: T.Application -> FilePath -> IO ()
-writeCurrentPattern app fName = 
-    T.withState app $ \state -> do
-        ruleName <- app & T.getCurrentRuleName
-        let p = state ^. T.currentPattern . _1
-            ss = state ^. T.states
-            encode = state ^. T.encodeInt
-            mc = MC.MCell { MC.game = Just MC.SpecialRules
+writeCurrentPattern :: MonadApp m => FilePath -> m ()
+writeCurrentPattern fName = getOps >>= \case
+    Ops{..} -> do
+        ruleName <- getCurrentRuleName
+        let mc = MC.MCell { MC.game = Just MC.SpecialRules
                           , MC.rule = ruleName
                           , MC.speed = Nothing
-                          , MC.ccolors = Just (length ss)
+                          , MC.ccolors = Just (length states)
                           , MC.coloring = Nothing
                           , MC.wrap = Just True
                           , MC.palette = Nothing
                           , MC.description = Nothing
-                          , MC.universe = encode <$> p
+                          , MC.universe = encodeInt <$> getPattern
                           , MC.diversities = []
                           }
-            path = fName -<.> "mcl"
-        writeFile path $ MC.encodeMCell mc
-        writeIORef (app ^. T.currentPatternPath) $ Just path
+        writePattern (fName -<.> "mcl") $ MC.encodeMCell mc
 
-openPattern :: T.Application -> IO ()
-openPattern app = void $
-    U.withFileDialogChoice (U.getPatternFileChooser app) FileChooserActionOpen $ const $ \fName -> do
-        pat <- readFile fName
-        case MC.decodeMCell pat of
-            Left err -> U.showMessageDialog (app ^. T.window) MessageTypeError ButtonsTypeOk
-                ("Could not decode file! The error was:\n" <> pack err)
-                (const $ pure ())
-            -- We rename one field to avoid shadowing Hint.Interop.rule
-            Right MC.MCell{MC.rule=rule'mc, ..} -> do
-                whenMaybeM rule'mc $ \rule' ->
-                    whenM (maybe True (rule'==) <$> (app & T.getCurrentRuleName)) $ do
-                        U.showMessageDialog (app ^. T.window) MessageTypeInfo ButtonsTypeYesNo
+openPattern :: MonadApp m => m ()
+openPattern = void $
+    withPatternFileDialog OpenFile $ \pat fName -> do
+        case MC.decodeMCell (unpack pat) of
+            Left err -> showErrorDialog $ "Could not decode file! The error was:\n" <> pack err
+            Right MC.MCell{MC.rule=rule, MC.universe=universe} -> do
+                curRuleName <- getCurrentRuleName
+                whenMaybeM rule $ \rule' ->
+                    when (maybe True (rule'==) curRuleName) $ do
+                        showQueryDialog 
                             "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
-                            $ \case
-                            ResponseTypeYes -> do
-                                predefDir <- getSetting' T.predefinedRulesDir app
-                                userDir   <- getSetting' T.userRulesDir       app
-
-                                rules <- listDirectories [userDir, predefDir]
-                                let ruleLocation = find ((rule'==) . takeBaseName) rules
-                                ruleLocationFinal <- findIfNotSelected rule' ruleLocation
-                                whenMaybeM ruleLocationFinal $ \file -> do
-                                    text <- readFile $ file
-                                    let ruleType = case (takeExtension file) of
-                                            ".hs"  -> T.Hint
-                                            ".alp" -> T.ALPACA
-                                            _ -> T.ALPACA -- guess
-                                    U.setCurrentRule app (Just file) text ruleType
-                                    -- Set this rule's text in the Set Rule dialog
-                                    setTextBufferText (app ^. T.newRuleBuf) $ pack text
-                            _ -> return ()
-
-                T.modifyState app $ \state ->
-                    let fn = state ^. T.decodeInt
-                    in state & (T.currentPattern . _1) .~ (fn <$> universe)
-                writeIORef (app ^. T.currentPatternPath) $ Just pat
-                widgetQueueDraw (app ^. T.canvas)
+                            (return ()) $ do
+                                rulePath <- locateRuleByName rule' $
+                                    showQueryDialog
+                                        ("Could not find the specified rule '" <> pack rule' <> "'.\nDo you want to find this rule manually?")
+                                        (return Nothing) $
+                                        withRuleFileDialog OpenFile Nothing $ const (const pure)
+                                case rulePath of
+                                    Nothing -> pure ()
+                                    Just (file, contents) -> do
+                                        let ruleType = case (takeExtension file) of
+                                                ".hs"  -> T.Hint
+                                                ".alp" -> T.ALPACA
+                                                _ -> T.ALPACA -- guess
+                                        setCurrentRule (Just file) (unpack contents) ruleType
+                getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const $ decodeInt <$> universe
+                setCurrentPatternPath fName
   where
-    whenM :: IO Bool -> IO () -> IO ()
-    whenM c i = c >>= flip when i
-
-    whenMaybeM :: Applicative t => Maybe a -> (a -> t ()) -> t ()
-    whenMaybeM Nothing _ = pure ()
-    whenMaybeM (Just a) f = f a
-
-    findIfNotSelected :: String -> Maybe FilePath -> IO (Maybe FilePath)
-    findIfNotSelected name Nothing = findNewRule name
-    findIfNotSelected _    (Just r) = pure $ Just r
-
-    findNewRule :: String -> IO (Maybe FilePath)
-    findNewRule name = U.showMessageDialog (app ^. T.window) MessageTypeWarning ButtonsTypeYesNo
-        ("Could not find the specified rule '" <> pack name <> "'.\nDo you want to find this rule manually?")
-        $ \case
-        ResponseTypeYes -> U.withFileDialogChoice (U.getRuleFileChooser app Nothing) FileChooserActionOpen $ const pure
-        _ -> return Nothing
-
-    listDirectories :: [FilePath] -> IO [FilePath]
-    listDirectories ds =
-        filterM doesDirectoryExist ds
-        >>= traverse listDirectoryWithPath
-        >>= (pure . concat)
-      where
-        listDirectoryWithPath dir = (fmap . fmap) (dir </>) $ listDirectory dir
-
-showAboutDialog :: T.Application -> IO ()
-showAboutDialog app = do
-    a <- aboutDialogNew
-    set a
-        [ #transientFor := app ^. T.window
-        , #programName  := "Cabasa"
-        , #name         := "Cabasa"
-        , #version      := "0.1"
-        , #comments     := "An application for the simulation of arbitrary 2D cellular automata"
-        , #authors      := ["Brad Neimann"]
-        , #copyright    := "© Brad Neimann 2017-2018"
-        ]
-    _ <- dialogRun a
-    widgetDestroy a
-
-showUserManual :: IO ()
-showUserManual = do
-    location <- getDataFileName "doc/UserManual.pdf"
-#ifdef mingw32_HOST_OS
-    callCommand $ "start " ++ location
-#elif defined linux_HOST_OS
-    callCommand $ "xdg-open" ++ location
-#elif defined darwin_HOST_OS
-    callCommand $ "open"     ++ location
-#else
-    showMessageDialog (Just window) MessageError ButtonsOk
-        "ERROR: Could not figure out how to open manual on your system.\nThis is a bug - please report it on the project website" pure
-#endif
+    whenMaybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
+    whenMaybeM (Just a) am = am a
+    whenMaybeM Nothing  _  = pure ()

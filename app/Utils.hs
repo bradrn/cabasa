@@ -156,11 +156,12 @@ withFileDialogChoice :: (FileChooserAction -> IO FileChooserNative)
                      -> IO (Maybe a)
 withFileDialogChoice constr action contn = do
     fChooser <- constr action
-    fmap (toEnum.fromIntegral) (#run fChooser) >>= \case
-        ResponseTypeOk -> fileChooserGetFilename fChooser >>= \case
-            Just fName -> Just <$> contn fChooser fName
-            Nothing -> pure Nothing
-        _ -> pure Nothing
+    fmap (toEnum.fromIntegral) (#run fChooser) >>= \x ->
+        if (x == ResponseTypeOk) || (x == ResponseTypeAccept) then
+            fileChooserGetFilename fChooser >>= \case
+                Just fName -> Just <$> contn fChooser fName
+                Nothing -> pure Nothing
+        else pure Nothing
 
 -- Utilities for working with gi-gtk enums
 -- Usage: like 'funcTakingAnEnum (param val)' or 'enum (funcReturningAnEnum)'

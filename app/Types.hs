@@ -40,6 +40,7 @@ data InteractionMode
     | PastePendingMode InteractionMode
     -- ^ When the user clicks, paste the clipboard contents, then
     -- restore the previous mode (stored as the parameter)
+    deriving (Eq)
 
 data Application = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.
