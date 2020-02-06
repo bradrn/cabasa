@@ -39,6 +39,7 @@ executable cabasa
                      , Control.Monad.App
                      , Control.Monad.App.Class
                      , ControlButtons
+                     , Handlers
                      , Hint
                      , Menu
                      , Types

@@ -7,61 +7,29 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
-module Menu (addMenuHandlers) where
+module Menu
+    ( savePattern
+    , savePatternAs
+    , openPattern
+    , copyCanvas
+    , cutCanvas
+    , changeGridSize
+    ) where
 
 import Control.Monad (when, void)
 import Data.Bifunctor (first)
 import Data.Ix (range)
-import Data.IORef
-import Data.Maybe (isJust)
 
 import qualified CA.Format.MCell as MC
 import Data.Text (pack, unpack)
-import GI.Gtk
 import Lens.Micro hiding (set)
 import System.FilePath (takeExtension, (-<.>))
 
 import CA.Core (peek, evolve)
 import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (render, fromList, size, clipInside, Bounds(..))
-import Control.Monad.App
 import Control.Monad.App.Class
 import qualified Types as T
-
-addMenuHandlers :: T.Application -> IO ()
-addMenuHandlers app = do
-    _ <- on (app ^. T.drawMode) #activate   $ flip runApp app $ setMode T.DrawMode
-    _ <- on (app ^. T.moveMode) #activate   $ flip runApp app $ setMode T.MoveMode
-    _ <- on (app ^. T.selectMode) #activate $ flip runApp app $ setMode T.SelectMode
-
-    _ <- on (app ^. T.savePattern)   #activate $ runApp savePattern app
-    _ <- on (app ^. T.savePatternAs) #activate $ runApp savePatternAs app
-    _ <- on (app ^. T.openPattern)   #activate $ runApp openPattern app
-
-    _ <- on (app ^. T.about) #activate $ runApp showAboutDialog app
-    _ <- on (app ^. T.uman)  #activate $ runApp showUserManual app
-
-    _ <- on (app ^. T.copyCanvas)    #activate $ runApp copyCanvas app
-    _ <- on (app ^. T.cutCanvas)     #activate $ runApp cutCanvas  app
-    _ <- on (app ^. T.pasteToCanvas) #activate $
-        readIORef (app ^. T.selection) >>= \sel ->
-            when (isJust sel) $ modifyIORef (app ^. T.currentMode) T.PastePendingMode
-
-    _ <- on (app ^. T.changeGridSize) #activate $ runApp changeGridSize app
-
-    _ <- on (app ^. T.setRule)   #activate $ widgetShowAll (app ^. T.setRuleWindow)
-    _ <- on (app ^. T.editSheet) #activate $ widgetShowAll (app ^. T.editSheetWindow)
-
-    let when' p f = \x -> if p x then f x else x
-
-    _ <- on (app ^. T.goFaster) #activate $ flip runApp app $ modifyDelay (when' (>100) (`quot` 10))
-    _ <- on (app ^. T.goSlower) #activate $ flip runApp app $ modifyDelay (* 10)
-
-    _ <- on (app ^. T.runSettings) #activate $ runApp showSettingsDialog app
-
-    _ <- on (app ^. T.quit) #activate $ mainQuit
-
-    return ()
 
 copyCanvas :: MonadApp m => m ()
 copyCanvas = getSelection >>= \case

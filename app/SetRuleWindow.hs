@@ -4,44 +4,31 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
 
-module SetRuleWindow (addSetRuleWindowHandlers) where
+module SetRuleWindow
+    ( setRuleWindowDeleteHandler
+    , setRuleBtnHandler
+    , saveRule
+    , saveRuleAs
+    , openRuleHandler
+    ) where
 
 import Prelude hiding (readFile, writeFile)
 
 import Control.Monad (void)
-import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (fromMaybe)
 
 import Data.Text (unpack)
-import GI.Gtk
-import Lens.Micro
 import System.FilePath
 
-import Control.Monad.App
 import Control.Monad.App.Class
 import qualified Types as T
 
-addSetRuleWindowHandlers :: T.Application -> IO ()
-addSetRuleWindowHandlers app = do
-    _ <- on (app ^. T.setRuleWindow) #deleteEvent $ \_ -> liftIO $ setRuleWindowDeleteHandler app
-    _ <- on (app ^. T.setRuleBtn)    #clicked  $ runApp setRuleBtnHandler app
-    _ <- on (app ^. T.saveRule)      #activate $ runApp saveRule app
-    _ <- on (app ^. T.saveRuleAs)    #activate $ runApp saveRuleAs app
-    _ <- on (app ^. T.openRule)      #activate $ runApp openRuleHandler app
-    return ()
-
-setRuleWindowDeleteHandler :: T.Application -> IO Bool
-setRuleWindowDeleteHandler app = do
-    runApp ruleWindowDeleteActions app
-    widgetHide (app ^. T.setRuleWindow)
-    return True
-
-ruleWindowDeleteActions :: MonadApp m => m ()
-ruleWindowDeleteActions =
+setRuleWindowDeleteHandler :: MonadApp m => m ()
+setRuleWindowDeleteHandler = do
     getCurrentRuleName >>= \case
         Just _ -> pure ()
         Nothing -> showQueryDialog "Do you want to save your changes" (pure ()) saveRuleAs
-
+    setRuleWindowDelete
 
 setRuleBtnHandler :: MonadApp m => m ()
 setRuleBtnHandler = do

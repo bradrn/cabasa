@@ -6,52 +6,20 @@
 {-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-module Canvas (addCanvasHandlers) where
+module Canvas where
 
-import Control.Monad (when, (>=>))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad (when)
 import Data.Bifunctor (first)
 import Data.Foldable (for_)
 import Data.Functor (($>))
-import Data.IORef
 
 import Data.Array (array, assocs, bounds)
-import Data.GI.Base.Attributes
 import Data.Text (pack)
-import GI.Gdk hiding (Point)
-import GI.Gtk
 import Lens.Micro
 
 import CA.Universe
-import Control.Monad.App
 import Control.Monad.App.Class
 import qualified Types as T
-
-addCanvasHandlers :: T.Application -> IO ()
-addCanvasHandlers app = do
-    let canvas' = app ^. T.canvas  -- because we use this field so much
-    widgetAddEvents canvas'
-        [ EventMaskButtonPressMask
-        , EventMaskButtonReleaseMask
-        , EventMaskButtonMotionMask
-        , EventMaskPointerMotionMask
-        , EventMaskScrollMask
-        ]
-
-    _ <- on canvas' #draw $ flip runApp app . drawCanvas
-
-    _ <- on canvas' #buttonPressEvent  $ getMouseEventInfo >=> \ev -> runApp (canvasMouseHandler True ev) app
-    _ <- on canvas' #motionNotifyEvent $ getMouseEventInfo >=> \ev -> runApp (canvasMouseHandler False ev) app
-    _ <- on canvas' #buttonReleaseEvent $ \_ -> liftIO $ writeIORef (app ^. T.lastPoint) Nothing $> True
-
-    _ <- on canvas' #scrollEvent $ getScrollEventInfo >=> \ev -> runApp (zoom ev) app
-
-    _ <- on (app ^. T.clearPattern) #activate $ runApp clearPattern app
-
-    _ <- on (app ^. T.clearSelection) #activate $
-        writeIORef (app ^. T.selection) Nothing >> widgetQueueDraw canvas'
-
-    return ()
 
 clearPattern :: MonadApp m => m ()
 clearPattern = do
@@ -59,25 +27,6 @@ clearPattern = do
     modifyPos $ const T.Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
     resetRestorePattern
     getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const defaultPattern
-
-
-getMouseEventInfo :: ( AttrGetC i1 ev "state" [ModifierType]
-                     , AttrGetC i2 ev "x" Double
-                     , AttrGetC i3 ev "y" Double
-                     ) => ev -> IO ([ModifierType], (Double, Double))
-getMouseEventInfo ev = do
-    s <- get ev #state
-    x <- get ev #x
-    y <- get ev #y
-    return (s, (x, y))
-
-getScrollEventInfo :: EventScroll -> IO (ScrollDirection, (Double, Double))
-getScrollEventInfo ev = do
-    s <- get ev #direction
-    x <- get ev #x
-    y <- get ev #y
-    return (s, (x, y))
-
 
 data MouseGridPos = MouseGridPos
     { gridPos :: Point
@@ -109,10 +58,10 @@ zoom (scrollDir, evCoords) = do
 
 canvasMouseHandler :: MonadApp m
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
-                   -> ([ModifierType], (Double, Double))  -- ^ modifiers and (x, y) of mouse event
+                   -> (Bool, (Double, Double))  -- ^ whether the mouse button was pressed, and (x, y), of mouse event
                    -> m Bool
-canvasMouseHandler fromButtonPress (ms, coords) = do
-    let isButtonDown = fromButtonPress || (ModifierTypeButton1Mask `elem` ms)
+canvasMouseHandler fromButtonPress (btnDown, coords) = do
+    let isButtonDown = fromButtonPress || btnDown
     pos' <- getPos
     let MouseGridPos{ viewPos = viewP@(Point viewX viewY)
                     , gridPos = gridP@(Point gridX gridY)

@@ -11,13 +11,12 @@ module Control.Monad.App.Class
     , FileChooserAction(..)
     , Optional
     , PointDiff(..)
+    , ScrollDirection(..)
     , MonadRender(..)
     ) where
 
 import Control.Monad.Random.Strict (StdGen, Rand)
 import Data.Text (Text)
-import GI.Gtk hiding (FileChooserAction)
-import qualified GI.Gtk  -- for FileChooserAction
 import qualified Graphics.Rendering.Cairo as C
 import Graphics.Rendering.Cairo (Render)
 
@@ -107,10 +106,19 @@ class Monad m => MonadApp m where
     -- automatically bring every operation in @Ops@ into scope.)
     getOps :: m (Ops m)
 
+    -- | Quit the main window
+    mainQuit :: m ()
+    -- | Delete the ‘set rule’ window
+    setRuleWindowDelete :: m ()
+    -- | Delete the ‘edit stylesheet’ window
+    stylesheetWindowDelete :: m ()
+
     -- | Get the current interaction mode
     getCurrentMode :: m T.InteractionMode
     -- | Set the current interaction mode
     setMode :: T.InteractionMode -> m ()
+    -- | Set the current mode as having a paste pending
+    setPastePending :: m ()
     -- | Get the state currently being used to draw with
     getCurrentDrawingState :: m Int
 
@@ -163,6 +171,23 @@ class Monad m => MonadApp m where
     -- difference between the given point and the last recorded point
     -- as a 'PointDiff'.
     recordNewMousePoint :: Point -> m PointDiff
+    -- | Erase the last record of the point the mouse was at. This
+    -- will cause 'recordNewMousePoint' to return 'NoPoint' the next
+    -- time it is called.
+    eraseMousePointRecord :: m ()
+
+    -- | A type containing the details of a mouse event
+    type MouseEvent m :: *
+    -- | Given a mouse event, return whether the mouse had been
+    -- pressed during the event, as well as the @x@ and @y@
+    -- coordinates of the event
+    getMouseEventInfo :: MouseEvent m -> m (Bool, (Double, Double))
+
+    -- | A type containing the details of a scroll event
+    type ScrollEvent m :: *
+    -- | Given a scroll event, return the scroll direction, as well as
+    -- the @x@ and @y@ coordinates of the event
+    getScrollEventInfo :: ScrollEvent m -> m (ScrollDirection, (Double, Double))
 
     -- | Get the current paste overlay
     getPasteSelectionOverlay :: m (Maybe (CA.Universe.Point, CA.Universe.Point))
@@ -177,6 +202,11 @@ class Monad m => MonadApp m where
         -> m ()
     -- | Display the ‘settings’ dialog
     showSettingsDialog :: m ()
+
+    -- | Display the ‘set rule’ window
+    showSetRuleWindow :: m ()
+    -- | Display the ‘edit sheet’ window
+    showEditSheetWindow :: m ()
 
     -- | Display the ‘about’ dialog
     showAboutDialog :: m ()
@@ -341,6 +371,9 @@ data PointDiff = NoDiff    -- ^ No difference
                -- ^ There was a previously recorded point, with the given difference
                -- (i.e. if you have @PointDiff d@, then @prevPoint + d = newPoint@)
                deriving (Show)
+
+-- | Describes the direction of a scroll event.
+data ScrollDirection = ScrollDirectionUp | ScrollDirectionDown | ScrollDirectionOther
 
 -- | A more pure class for rendering. The 'Render' monad from @cairo@
 -- is great for rendering, but implements 'MonadIO', making purity

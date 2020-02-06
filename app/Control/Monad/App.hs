@@ -18,6 +18,7 @@
 module Control.Monad.App
     ( App
     , runApp
+    , GtkMouseEvent(..)
     ) where
 
 import Control.Applicative ((<|>))
@@ -33,8 +34,11 @@ import Data.Text (pack, uncons)
 import qualified Data.Text.IO as TIO
 import qualified GI.Cairo
 import Data.GI.Gtk.Threading (postGUIASync)
+import GI.Gdk (ModifierType(ModifierTypeButton1Mask), EventScroll)
+import qualified GI.Gdk
 import GI.Gtk hiding (FileChooserAction)
 import qualified GI.Gtk  -- for FileChooserAction
+import Data.GI.Base.Attributes
 import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
 import Graphics.Rendering.Cairo.Internal (Render(runRender))
 import Lens.Micro hiding (set)
@@ -96,6 +100,14 @@ toGtkAction :: FileChooserAction i -> GI.Gtk.FileChooserAction
 toGtkAction OpenFile = FileChooserActionOpen
 toGtkAction SaveFile = FileChooserActionSave
 
+data GtkMouseEvent =
+    forall ev i1 i2 i3.
+    ( AttrGetC i1 ev "state" [ModifierType]
+    , AttrGetC i2 ev "x" Double
+    , AttrGetC i3 ev "y" Double
+    ) => GtkMouseEvent ev
+
+
 instance MonadApp App where
     getOps = do
         sRef <- asks (^. T.existState)
@@ -121,11 +133,16 @@ instance MonadApp App where
             , getName = s ^. T.getName
             }
 
+    mainQuit = liftIO GI.Gtk.mainQuit
+    setRuleWindowDelete = asks (^. T.setRuleWindow) >>= liftIO . widgetHide
+    stylesheetWindowDelete = asks (^. T.editSheetWindow) >>= liftIO . widgetHide
+
     getCurrentMode = readIORef' T.currentMode
     setMode m = do
         writeIORef' T.currentMode m
         asks (^. T.drawopts) >>= \w ->
             widgetSetSensitive w $ m == T.DrawMode
+    setPastePending = modifyIORefA' T.currentMode T.PastePendingMode
     getCurrentDrawingState = ask >>= \app -> liftIO $
         comboBoxGetActiveIter (app ^. T.curstate) >>= \case
             (False, _) -> return 0
@@ -205,6 +222,24 @@ instance MonadApp App where
       where
         getDiff (Point lastX lastY) (Point thisX thisY) =
             Point (thisX-lastX) (thisY-lastY)
+    eraseMousePointRecord = writeIORef' T.lastPoint Nothing
+
+    type MouseEvent App = GtkMouseEvent
+    getMouseEventInfo (GtkMouseEvent ev) = liftIO $ do
+        s <- get ev #state
+        x <- get ev #x
+        y <- get ev #y
+        return (ModifierTypeButton1Mask `elem` s, (x, y))
+
+    type ScrollEvent App = EventScroll
+    getScrollEventInfo ev = liftIO $ do
+        s <- get ev #direction >>= pure . \case
+            GI.Gdk.ScrollDirectionUp -> ScrollDirectionUp
+            GI.Gdk.ScrollDirectionDown -> ScrollDirectionDown
+            _ -> ScrollDirectionOther
+        x <- get ev #x
+        y <- get ev #y
+        return (s, (x, y))
 
     getPasteSelectionOverlay = readIORef' T.pasteSelectionOverlay
     setPasteSelectionOverlay o = do
@@ -225,6 +260,9 @@ instance MonadApp App where
             _ -> pure ()
         widgetHide d
     showSettingsDialog = withApp S.showSettingsDialog
+
+    showSetRuleWindow = ask >>= \app -> widgetShowAll (app ^. T.setRuleWindow)
+    showEditSheetWindow = ask >>= \app -> widgetShowAll (app ^. T.editSheetWindow)
 
     showAboutDialog = withApp $ \app -> do
         a <- aboutDialogNew
