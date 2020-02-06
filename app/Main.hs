@@ -38,6 +38,7 @@ import Paths_cabasa
 import Settings (getSettingFrom', readSettings)
 import Handlers
 import qualified Types as T
+import qualified Types.Application as T
 
 main :: IO ()
 main = do

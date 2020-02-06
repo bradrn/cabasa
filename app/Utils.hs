@@ -34,6 +34,7 @@ import Paths_cabasa
 import Settings (getSetting')
 import ShowDialog
 import qualified Types as T
+import qualified Types.Application as T
 
 modifyGeneration :: T.Application -> (Int -> Int) -> IO ()
 modifyGeneration app f = do

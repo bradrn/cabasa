@@ -7,6 +7,7 @@ import GI.Gtk
 import Lens.Micro hiding (set)
 
 import qualified Types as T
+import qualified Types.Application as T
 import Settings
 
 showSettingsDialog :: T.Application -> IO ()

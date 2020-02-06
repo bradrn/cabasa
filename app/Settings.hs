@@ -20,6 +20,7 @@ import System.FilePath ((</>))
 
 import ShowDialog
 import qualified Types as T
+import qualified Types.Application as T
 
 configDir :: IO FilePath
 configDir = getXdgDirectory XdgConfig "Cabasa"

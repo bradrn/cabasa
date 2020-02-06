@@ -43,6 +43,7 @@ executable cabasa
                      , Hint
                      , Menu
                      , Types
+                     , Types.Application
                      , SetRuleWindow
                      , Settings
                      , SettingsDialog

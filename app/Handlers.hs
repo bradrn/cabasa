@@ -16,6 +16,7 @@ import Lens.Micro
 
 import Control.Monad.App
 import qualified Types as T
+import qualified Types.Application as T
 
 import Control.Monad.App.Class
 import qualified Menu

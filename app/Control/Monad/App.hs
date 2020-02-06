@@ -52,6 +52,7 @@ import qualified Utils as U
 import Settings (getSetting')
 import qualified SettingsDialog as S
 import qualified Types as T
+import qualified Types.Application as T
 import Paths_cabasa
 
 -- | A concrete implementation of the 'MonadApp' interface.
