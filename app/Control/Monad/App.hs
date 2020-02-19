@@ -2,15 +2,20 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
@@ -26,10 +31,17 @@ import Control.Concurrent (killThread, forkIO, threadDelay)
 import Data.Int (Int32)
 import Data.IORef
 import Data.List (find)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
+import Data.Proxy
+import Foreign.C.Types (CInt)
 import Foreign.Ptr (castPtr)
+import GHC.TypeLits (natVal)
 
+import CA.ALPACA (AlpacaData(..), runALPACA)
+import CA.Universe (Point(..), Coord(..), CARuleA)
+import Control.Monad.Random.Strict (newStdGen, Rand, StdGen)
 import Control.Monad.Reader
+import qualified Data.Finite as F
 import Data.Text (pack, uncons)
 import qualified Data.Text.IO as TIO
 import qualified GI.Cairo
@@ -37,6 +49,7 @@ import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Gdk (ModifierType(ModifierTypeButton1Mask), EventScroll)
 import qualified GI.Gdk
 import GI.Gtk hiding (FileChooserAction)
+import Hint
 import qualified GI.Gtk  -- for FileChooserAction
 import Data.GI.Base.Attributes
 import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
@@ -46,11 +59,10 @@ import System.FilePath ((</>), (-<.>), takeBaseName, takeExtension)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
-import CA.Universe (Point(..), Coord(..))
 import Control.Monad.App.Class
-import qualified Utils as U
-import Settings (getSetting')
-import qualified SettingsDialog as S
+import Hint.Interop
+import Settings
+import ShowDialog
 import qualified Types as T
 import qualified Types.Application as T
 import Paths_cabasa
@@ -87,12 +99,12 @@ redrawCanvas = asks (^. T.canvas) >>= liftIO . postGUIASync . widgetQueueDraw
 -- | Set the icon of the ‘play\/pause button’ to ‘play’. Used
 -- internally in the implementation of @instance MonadApp app@.
 setPlayBtnIcon :: App ()
-setPlayBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play")  $ U.param IconSizeButton
+setPlayBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play")  $ param IconSizeButton
 
 -- | Set the icon of the ‘play\/pause button’ to ‘pause’. Used
 -- internally in the implementation of @instance MonadApp app@.
 setPauseBtnIcon :: App ()
-setPauseBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") $ U.param IconSizeButton
+setPauseBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") $ param IconSizeButton
 
 -- | Convenience function to convert a 'FileChooserAction' (with a
 -- phantom type parameter, for use with 'Optional') to the
@@ -189,7 +201,7 @@ instance MonadApp App where
     resetRestorePattern = withApp $ \app ->
         T.modifyState app $ T.saved .~ Nothing
 
-    modifyGen f = withApp $ flip U.modifyGeneration f
+    modifyGen f = withApp $ flip modifyGeneration f
     modifyDelay f = do
         old <- readIORef' T.delay
         let new = f old
@@ -253,14 +265,38 @@ instance MonadApp App where
         liftIO $ adjustmentSetValue colsAdj $ fromIntegral cols
         liftIO $ adjustmentSetValue rowsAdj $ fromIntegral rows   
         d <- asks (^. T.newGridSizeDialog)
-        U.dialogRun' d >>= \case
+        dialogRun' d >>= \case
             AnotherResponseType 1 -> do  -- OK button
                 newCols <- floor <$> adjustmentGetValue colsAdj
                 newRows <- floor <$> adjustmentGetValue rowsAdj
                 callback (Coord newCols) (Coord newRows)
             _ -> pure ()
         widgetHide d
-    showSettingsDialog = withApp S.showSettingsDialog
+    showSettingsDialog = withApp $ \app -> do
+        _ <- getSetting' T.predefinedRulesDir app >>=
+          fileChooserSetCurrentFolder (app ^. T.predefRulesDirChooser)
+
+        _ <- getSetting' T.userRulesDir app >>=
+          fileChooserSetCurrentFolder (app ^. T.userRulesDirChooser)
+
+        _ <- getSetting (T.gridSize . _Just . _1) app >>= (fromIntegral <&> adjustmentSetValue (app ^. T.numColsAdjustment))
+        _ <- getSetting (T.gridSize . _Just . _2) app >>= (fromIntegral <&> adjustmentSetValue (app ^. T.numRowsAdjustment))
+
+        dialogRun (app ^. T.settingsWindow) >>= \case
+           1 -> do  -- OK button
+               _predefinedRulesDir <- fileChooserGetFilename (app ^. T.predefRulesDirChooser)
+               _userRulesDir       <- fileChooserGetFilename (app ^. T.userRulesDirChooser)
+
+               _gridSize <- fmap Just $
+                   (,) <$> (floor <$> adjustmentGetValue (app ^. T.numColsAdjustment))
+                       <*> (floor <$> adjustmentGetValue (app ^. T.numRowsAdjustment))
+
+               saveSettings (T.Settings {..}) app
+           _ -> pure ()
+
+        widgetHide (app ^. T.settingsWindow)
+
+        return ()
 
     showSetRuleWindow = ask >>= \app -> widgetShowAll (app ^. T.setRuleWindow)
     showEditSheetWindow = ask >>= \app -> widgetShowAll (app ^. T.editSheetWindow)
@@ -294,20 +330,38 @@ instance MonadApp App where
 
     showErrorDialog msg = do
         w <- asks (^. T.window)
-        liftIO $ U.showMessageDialog w MessageTypeError ButtonsTypeOk msg $ const $ pure ()
+        liftIO $ showMessageDialog w MessageTypeError ButtonsTypeOk msg $ const $ pure ()
     showQueryDialog msg no yes = withApp $ \app -> do
-        U.showMessageDialog (app ^. T.window) MessageTypeInfo ButtonsTypeYesNo msg
+        showMessageDialog (app ^. T.window) MessageTypeInfo ButtonsTypeYesNo msg
             $ flip runApp app . \case { ResponseTypeYes -> yes ; _ -> no }
 
     withPatternFileDialog act callback = withApp $ \app -> do
-        U.withFileDialogChoice (U.getPatternFileChooser app) (toGtkAction act) $ \_ path ->
+        withFileDialogChoice (getPatternFileChooser app) (toGtkAction act) $ \_ path ->
             case act of
                 SaveFile -> runApp (callback () path) app
                 OpenFile -> do
                     p <- TIO.readFile path
                     runApp (callback p path) app
+      where
+        -- Returns a file chooser preconfigured to save or open pattern files
+        getPatternFileChooser :: T.Application -> GI.Gtk.FileChooserAction -> IO FileChooserNative
+        getPatternFileChooser app action = do
+            fChooser <- fileChooserNativeNew
+                Nothing
+                (Just $ app ^. T.setRuleWindow)
+                action
+                Nothing Nothing
+
+            mCellFilter <- fileFilterNew
+            fileFilterSetName mCellFilter $ Just "MCell files (*.mcl)"
+            fileFilterAddPattern mCellFilter "*.mcl"
+            fileChooserAddFilter fChooser mCellFilter
+
+            return fChooser
+
+
     withRuleFileDialog act filterType callback = withApp $ \app -> do
-        U.withFileDialogChoice (U.getRuleFileChooser app filterType) (toGtkAction act) $ \fChooser fName -> do
+        withFileDialogChoice (getRuleFileChooser app filterType) (toGtkAction act) $ \fChooser fName -> do
             -- There are two places where the rule type can be
             -- specified: the extension of the chosen file, or the
             -- chosen file type filter. We use the former if it is
@@ -334,8 +388,36 @@ instance MonadApp App where
                 OpenFile -> do
                     p <- TIO.readFile fName
                     runApp (callback ruleType p fName) app
+      where
+        -- Returns a file chooser preconfigured to save or open rule files
+        getRuleFileChooser :: T.Application -> Maybe T.Rule -> GI.Gtk.FileChooserAction -> IO FileChooserNative
+        getRuleFileChooser app filterType action = do
+            fChooser <- fileChooserNativeNew
+                Nothing
+                (Just $ app ^. T.setRuleWindow)
+                action
+                Nothing Nothing
+
+            alpacaFilter <- fileFilterNew
+            fileFilterSetName alpacaFilter $ Just "ALPACA files"
+            fileFilterAddPattern alpacaFilter "*.alp"
+            fileChooserAddFilter fChooser alpacaFilter
+
+            haskellFilter <- fileFilterNew
+            fileFilterSetName haskellFilter $ Just "Haskell files"
+            fileFilterAddPattern haskellFilter "*.hs"
+            fileFilterAddPattern haskellFilter "*.lhs"
+            fileChooserAddFilter fChooser haskellFilter
+
+            case filterType of
+                Nothing -> pure ()
+                Just T.ALPACA -> fileChooserSetFilter fChooser alpacaFilter
+                Just T.Hint   -> fileChooserSetFilter fChooser haskellFilter
+
+            return fChooser
+
     withCSSFileDialog act callback = withApp $ \app -> do
-        U.withFileDialogChoice (getCSSFileChooser app) (toGtkAction act) $ \_ path -> do
+        withFileDialogChoice (getCSSFileChooser app) (toGtkAction act) $ \_ path -> do
             case act of
                 SaveFile -> runApp (callback () path) app
                 OpenFile -> do
@@ -349,12 +431,12 @@ instance MonadApp App where
                 (Just $ app ^. T.editSheetWindow)
                 ac
                 Nothing Nothing
-        
+
             cssFilter <- fileFilterNew
             fileFilterSetName cssFilter $ Just "ALPACA Stylesheets files (*.css)"
             fileFilterAddPattern cssFilter "*.css"
             fileChooserAddFilter fChooser cssFilter
-        
+
             return fChooser
 
     getCurrentRuleName = withApp T.getCurrentRuleName
@@ -401,14 +483,74 @@ instance MonadApp App where
         case ruleType of
             T.ALPACA -> checkMenuItemSetActive (app ^. T.alpacaLang)  True
             T.Hint   -> checkMenuItemSetActive (app ^. T.haskellLang) True
-    setCurrentRule file contents ruleType = withApp $ \app -> U.setCurrentRule app file contents ruleType
+    setCurrentRule path text ruleType = withApp $ \app ->
+        parseRule app text >>= \case
+            Left err -> showMessageDialog (app ^. T.window)
+                                        MessageTypeError
+                                        ButtonsTypeOk
+                                        (pack err)
+                                        (const $ pure ())
+            Right (CAVals _ca, pressClear) -> do
+                g <- newStdGen
+                T.withState app $ \old -> do
+                    let encFn = old ^. T.encodeInt
+                        decFn = _ca ^. T.decodeInt
+                        (oldPtn, _) = old ^. T.currentPattern
+                        newPtn = (decFn . encFn) <$> oldPtn
+                    writeIORef (app ^. T.existState) $ T.ExistState $
+                        T.ExistState'{T._ca, T._currentPattern=(newPtn, g), T._saved=Nothing, T._clipboardContents=Nothing}
+                modifyGeneration app (const 0)
+                writeIORef (app ^. T.currentRulePath) path
+
+                -- Update the ListStore with the new states
+                let curstatem = app ^. T.curstatem
+                    curstate  = app ^. T.curstate
+                (listStoreClear curstatem)
+                forM_ (enumFromTo 0 $ length (_ca ^. T.states) - 1) $ \val -> do
+                    iter <- listStoreAppend curstatem
+                    val' <- toGValue (fromIntegral val :: CInt)
+                    listStoreSet curstatem iter [0] [val']
+                comboBoxSetActive curstate 0
+
+                when pressClear $ menuItemActivate (app ^. T.clearPattern)
+
+                -- Because we're changing the currentPattern, we need to redraw
+                widgetQueueDraw $ app ^. T.canvas
+      where
+        -- 'parseRule' is the rule-parsing function, which varies depending on 'ruleType'.
+        -- If the parsing operation succeeds ('Right'), it returns a tuple; the
+        -- first element is the 'CAVals' which has been parsed, and the second is a
+        -- 'Bool' stating if the screen needs to be cleared (as it may need to be if
+        -- e.g. an ALPACA initial configuration has been defined and loaded into
+        -- '_defaultPattern').
+        parseRule :: T.Application -> String -> IO (Either String (CAVals, Bool))
+        parseRule app = case ruleType of
+                T.ALPACA -> \rule -> do
+                        gridSize <- getSetting' T.gridSize app
+                        return $ fmap (mkALPACAGrid gridSize) $ runALPACA @StdGen rule
+                T.Hint   -> (fmap . fmap . fmap) (,False) runHint
+          where
+            mkALPACAGrid (numcols, numrows)
+                        (AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n))
+                                    , initConfig
+                                    , stateData }) =
+                let maxVal = natVal (Proxy @n)
+                in (,isJust initConfig) $ CAVals $ CAVals'
+                    { _defaultSize = (Coord numcols, Coord numrows)
+                    , _defaultVal  = const 0
+                    , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
+                    , _encodeInt = fromInteger . F.getFinite
+                    , _decodeInt = F.finite . min (maxVal-1) . toInteger
+                    , _states = F.finites
+                    , _rule = rule
+                    , _getName = Just . fst . stateData}
 
     getCurrentPatternPath = readIORef' T.currentPatternPath
     setCurrentPatternPath = writeIORef' T.currentPatternPath . Just
     writePattern path contents = do
         liftIO $ writeFile path contents
         writeIORef' T.currentPatternPath $ Just path
-    
+
     getStylesheetText = asks (^. T.sheetBuf) >>= \sheetBuf -> liftIO $ do
         (start, end) <- textBufferGetBounds sheetBuf
         textBufferGetText sheetBuf start end True
@@ -432,3 +574,34 @@ instance MonadApp App where
             w <- fromIntegral <$> widgetGetAllocatedWidth canvas
             h <- fromIntegral <$> widgetGetAllocatedHeight canvas
             return (w, h)
+
+modifyGeneration :: T.Application -> (Int -> Int) -> IO ()
+modifyGeneration app f = do
+    let generation    = app ^. T.generation
+        generationLbl = app ^. T.generationLbl
+    g <- readIORef generation
+    let g' = f g
+    writeIORef generation g'
+    labelSetText generationLbl $ pack $ show g'
+
+withFileDialogChoice :: (GI.Gtk.FileChooserAction -> IO FileChooserNative)
+                     -> GI.Gtk.FileChooserAction
+                     -> (FileChooserNative -> FilePath -> IO a)
+                     -> IO (Maybe a)
+withFileDialogChoice constr action contn = do
+    fChooser <- constr action
+    fmap (toEnum.fromIntegral) (#run fChooser) >>= \x ->
+        if (x == ResponseTypeOk) || (x == ResponseTypeAccept) then
+            fileChooserGetFilename fChooser >>= \case
+                Just fName -> Just <$> contn fChooser fName
+                Nothing -> pure Nothing
+        else pure Nothing
+
+-- Utilities for working with gi-gtk enums
+-- Usage: like 'funcTakingAnEnum (param val)' or 'enum (funcReturningAnEnum)'
+
+param :: Enum e => e -> Int32
+param = fromIntegral . fromEnum
+
+enum :: Enum e => Int32 -> e
+enum = toEnum . fromIntegral
