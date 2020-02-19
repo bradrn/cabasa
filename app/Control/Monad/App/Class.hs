@@ -232,9 +232,8 @@ class Monad m => MonadApp m where
     -- | Run file dialog to select a rule file.
     withRuleFileDialog
         :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
-        -> Maybe T.Rule         -- ^ File format of rule to choose
-        -> (Maybe T.Rule -> Optional Text i -> FilePath -> m a)
-                                -- ^ Callback with chosen rule type, contents (if opening) and path of selected file
+        -> (Optional Text i -> FilePath -> m a)
+                                -- ^ Callback with contents (if opening) and path of selected file
         -> m (Maybe a)
     -- | Run file dialog to select a CSS stylesheet file.
     withCSSFileDialog
@@ -254,20 +253,16 @@ class Monad m => MonadApp m where
         -> m (Maybe (FilePath, Text))  -- ^ the path and contents of the rule, if it was found
     -- | Get the text of the current rule
     getRuleText :: m Text
-    -- | Get the language the current rule is written in
-    getCurrentLang :: m T.Rule
     -- | Write text of rule to a file
     writeRule :: FilePath -> Text -> m ()
     -- | Set the rule window to display a specific rule
     setRuleWindowRule
         :: Text    -- ^ Text of rule
-        -> T.Rule  -- ^ Language of rule
         -> m ()
     -- | Set the current rule
     setCurrentRule
         :: Maybe FilePath  -- ^ Path to rule, if there is one
         -> String          -- ^ Text of rule
-        -> T.Rule          -- ^ Rule type
         -> m ()
 
     -- | Get the path of the current pattern, if any

@@ -164,8 +164,6 @@ buildUI = do
     _setRuleWindow <- getObject Window        "setRuleWindow"
     _setRuleBtn    <- getObject Button        "setRuleBtn"
     _newRuleBuf    <- getObject TextView      "newRuleView" >>= textViewGetBuffer
-    _alpacaLang    <- getObject RadioMenuItem "alpacaLang"
-    _haskellLang   <- getObject RadioMenuItem "haskellLang"
     _saveRule      <- getObject MenuItem      "saveRule"
     _saveRuleAs    <- getObject MenuItem      "saveRuleAs"
     _openRule      <- getObject MenuItem      "openRule"

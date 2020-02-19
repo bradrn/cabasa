@@ -40,7 +40,6 @@ executable cabasa
                      , Control.Monad.App.Class
                      , ControlButtons
                      , Handlers
-                     , Hint
                      , Menu
                      , Types
                      , Types.Application
@@ -64,7 +63,6 @@ executable cabasa
                      , gi-gtk           >= 3.0  && < 3.1
                      , gi-gtk-hs        >= 0.3  && < 0.4
                      , haskell-gi-base  >= 0.21 && < 0.22
-                     , hint             >= 0.7  && < 0.9
                      , microlens        >= 0.4  && < 0.5
                      , microlens-th     >= 0.4  && < 0.5
                      , MonadRandom      >= 0.5  && < 0.6

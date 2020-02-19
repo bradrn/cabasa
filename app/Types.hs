@@ -11,8 +11,6 @@ import CA.Universe
 import Data.Aeson.TH (deriveJSON, defaultOptions, fieldLabelModifier)
 import Lens.Micro.TH (makeLenses)
 
-data Rule = ALPACA | Hint
-
 data InteractionMode
     = DrawMode
     -- ^ When the user click/drags, draw on the screen

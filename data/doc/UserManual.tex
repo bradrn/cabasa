@@ -308,11 +308,7 @@ The usual hotkeys \keys{\ctrl + C} and \keys{\ctrl + V} respectively may also be
 \label{sec:chngrule}
 
 The current CA can be changed using the \menu{Control > Set Rule} menu item.
-This opens a window where you can type in a specification of a CA rule.
-
-Two specification languages are supported: \emph{ALPACA} and \emph{Haskell}.
-You can switch between these using the option box at the bottom of the window.
-For more details on these formats, see Chapter~\ref{chap:speccas}.
+This opens a window where you can type in a specification of a CA rule using the ALPACA specification language.
 
 To accept a specification, press the `Set Rule' button at the bottom of the window.
 This will interpret the specification and load it into the main window.
@@ -331,8 +327,6 @@ state Dead  " "
 state Alive "*"
   to Dead when 4 Alive or 7 Dead.
 \end{verbatim}
-
-This is written in ALPACA, so make sure that the ALPACA language is selected before setting the rule.
 
 \section{Running CAs}
 \label{sec:running}
@@ -377,10 +371,8 @@ In more detail:
 \begin{itemize}
 \item To \textbf{save the current rule}, use the \menu{Control > Set Rule} menu item on the main window to open the CA selection window.
   Then press the \menu{File > Save As} menu item on the CA selection window to show a file selection dialog where you can save the current rule.
-  Ensure that the correct format (ALPACA or Haskell) is selected before saving.
 \item To \textbf{open a previously saved rule}, use the \menu{Control > Set Rule} menu item on the main window to open the CA selection window.
   Then press the \menu{File > Open} menu item on the CA selection window to show a file selection dialog where you can open a previously saved rule.
-  If your rule is not listed, try changing the file format (ALPACA or Haskell) at the bottom of the window.
   After the rule has been opened, press the \textit{Set Rule} button at the bottom of the window to load it as the current rule.
 \item To \textbf{save the current pattern}, use the \menu{File > Save As} menu item on the main window to show a file selection dialog where you can save the current pattern.
 \item To \textbf{open a previously saved pattern}, use the \menu{File > Open} menu item on the main window to show a file selection dialog where you can open a previously saved pattern.
@@ -425,20 +417,12 @@ The following settings are currently supported:
 \chapter{Specifying CAs}
 \label{chap:speccas}
 
-\section{Languages}
-\label{sec:speclangs}
-
-Cabasa supports two languages to specify CAs: \emph{ALPACA} and \emph{Haskell}.
-
-ALPACA is a language created by Chris Pressey specifically for the specification of CAs.
-Cabasa currently supports ALPACA version 1.1.
-
-Cabasa also allows CAs to be implemented in the Haskell programming language.
-As Haskell is a full-featured programming language, this approach is more powerful than using ALPACA,
-  but is extremely difficult if you do not already know Haskell.
-
 \section{Using ALPACA}
 \label{sec:usalp}
+
+ALPACA is a language created by Chris Pressey specifically for the specification of CAs.
+Cabasa uses the ALPACA language to specify CAs; currently Cabasa supports ALPACA version 1.1.
+Cabasa currently supports ALPACA version 1.1.
 
 The reference manual for ALPACA version 1.1 is a very good guide for learning about the various features of ALPACA.
 It is available at the following web address: \url{https://github.com/catseye/ALPACA/blob/0b2d57b8739dc240969c62c8e1cd13c1863770e0/doc/ALPACA.markdown}.
@@ -490,266 +474,6 @@ To open the ALPACA Stylesheets window, use the \menu{Draw > Edit Stylesheet} men
 This opens a window where you can edit the current stylesheet using the textbox in the middle of the screen,
   and then set it using the `Set Stylesheet' button at the bottom.
 You can also use the \menu{File > Open} and \menu{File > Save As} menu items to open and save stylesheets respectively.
-
-\section{Using Haskell}
-\label{sec:ushs}
-
-\textbf{Note:} If you don't know Haskell then feel free to skip this section.
-
-\vspace{2ex}
-
-\noindent It is also possible to use the Haskell programming language to specify CAs.
-This functionality relies on the \texttt{cellular-automata} Haskell library, which is embedded within Cabasa.
-
-\subsection{Theory}
-\label{sec:hsth}
-
-Cabasa represents 2D cellular automata through a data type \texttt{Universe}.
-This data type takes one type parameter, which is the type used for cell states.
-
-To get the value of a point in a \texttt{Universe}, the \texttt{peek} method can be used.
-This has the (slightly simplified) type signature \texttt{peek :: Point -> Universe a -> a}.
-\texttt{Point} itself is defined as \texttt{data Point = Point (Coord 'X) (Coord 'Y)},
-  where \texttt{'X} and \texttt{'Y} are phantom types,
-  and \texttt{Coord} is a simple newtype wrapper around \texttt{Int}.
-\texttt{Coord} has a \texttt{Num} instance,
-  so can be used as an overloaded numeric literal without requiring the constructor directly.
-Thus, to get the value of the universe \texttt{u} at, say, the point $(5, 10)$,
-  one would use the expression \texttt{peek (Point 5 10) u}.
-
-Now, how would one actually represent a CA evolution rule?
-The approach used here is to represent it as a function which is applied to every point in a \texttt{Universe};
-  in Cabasa, such a function is given the (again simplified) signature \texttt{Point -> Universe~a -> b}.
-The first argument to such a function is the point to which it is currently being applied;
-  the second, the \texttt{Universe} which it is currently being applied to.
-The returned value is the result of applying the rule at the given point.
-Thus, to create a rule which would, say, replace each point in a 2D universe with the value immediately above,
-  the following rule can be used:
-
-\begin{minted}{haskell}
-myRule :: Point -> Universe a -> a
-myRule curPoint uni =
-    let (Point x y) = curPoint
-        newPoint = Point x (y-1)   -- get the point immediately above
-    in
-        peek newPoint uni          -- get the value at newPoint
-\end{minted}
-
-Such a function can be applied to a whole \texttt{Universe} using the method
-  \texttt{evolve~:: (Point -> Universe a -> b) -> Universe a -> Universe b}.
-
-Now, the types actually used are slightly more general than the ones introduced above.
-Both \texttt{peek} and \texttt{evolve} are actually part of a larger \texttt{CA} typeclass:
-
-\begin{minted}{haskell}
-class Functor c => CA p c | c -> p where
-    peek   :: p -> c a -> a
-    evolve :: (p -> c a -> b) -> c a -> c b
-\end{minted}
-
-The \texttt{CA} typeclass is parameterised over two types:
-  the type of the grid \texttt{c},
-  but also the type of the coordinates \texttt{p}
-  (which also determines the \emph{topology} of the grid; that is, the way in which it is connected:
-    for example, \texttt{p = Int} for a 1D infinte strip, or \texttt{Point} for a 2D infinite universe).
-This allows more, different cellular automaton types to be considered;
-  the particular instance we were using above was \texttt{instance~CA Point Universe}.
-Using the above definition, it is possible to define the type of cellular automaton update rules
-  on a particular topology \texttt{p} and state type \texttt{a}:
-  \texttt{type CARule p a = forall c. CA p c => p -> c a -> a}.
-Thus, our example rule above could also be given the type \texttt{myRule :: CARule Point a}.
-Note that this new type is more polymorphic
-  in that it may be applied to \textit{any} CA with coordinate type \texttt{Point},
-  not only \texttt{Universe}.
-
-There is a further extension of \texttt{CARule} for applicative side-effects:
-  \texttt{type CARuleA t p a = forall c. CA p c => p -> c a -> t a}.
-This may be used to e.g.\ add randomness to a CA,
-  in that case by instantiating \texttt{t} as \texttt{Rand} (from the \texttt{MonadRandom} package).
-A \texttt{CARuleA} may be applied to a univere using the function
-  \texttt{evolveA :: (CA p c, Applicative t, Traversable c) => (p -> c a -> t a) -> c a -> t (c a)};
-  the effects are applied in Traversable order and are then collected.
-A \texttt{CARule} may be `upgraded' to a \texttt{CARuleA} using \texttt{pureRule :: Applicative t => CARule p a -> CARuleA t p a}.
-
-\subsection{Practise}
-\label{sec:hspr}
-
-Obviously, since Cabasa uses the 2D \texttt{Universe} type for its grid,
-  a rule of type \texttt{CARuleA Rand Point state\_type} should suffice for a CA evolution rule
-  (although the actual type used is the slightly more explicit
-    \texttt{Point -> Universe state\_type -> Rand StdGen state\_type}).
-However, Cabasa also requires several pieces of metadata, along with the rule itself,
-  such as what colours to use, how to encode and decode states to a file, etc.
-This metadata is stored --- along with the rule itself --- in a record, \texttt{CAVals' t}
-  (where \texttt{t} is the state type),
-  containing the following fields:
-
-\begin{description}[font=\normalfont\bfseries\ttfamily]
-\item[\_rule :: Point -> Universe t -> Rand StdGen t]
-  The rule function itself
-\item[\_states :: {[t]}]
-  A list of states to be shown in the state selection box (at the top of the window)
-\item[\_defaultSize :: (Coord 'X, Coord 'Y)]
-  The width and height respectively of the default pattern.
-\item[\_defaultVal :: Point -> t]
-  The default value at the given point.
-  This must be a total function which returns a sensible value for all points,
-    not just ones inside the range defined by \textbf{\texttt{\_defaultSize}}.
-\item[\_state2color :: t -> (Double, Double, Double)]
-  A function to specify a colour for each state.
-  Colours are specified as a tuple of \texttt{(red, green, blue)}.
-\item[\_encodeInt :: t -> Int]
-  Converts a state to and from an integer.
-  Used for saving patterns to a file.
-  Returned values should be kept between 1 and 255 (inclusive).
-\item[\_decodeInt :: Int -> t]
-  Opposite of \texttt{encodeInt} (above).
-  Used for reading a pattern from a file.
-  Aim to make this satisfy the law \texttt{(decodeInt . encodeInt) val == val};
-    however, note that this is not always entirely possible.
-\item[\_getName :: t -> Maybe String]
-  Given a state, get its (optional) name as a string.
-\end{description}
-
-Note that all of the fields detailed above use the state type \texttt{t}.
-However, this presents us with a problem:
-  the \texttt{CAVals'} record could use any type, including custom types, as a state type,
-  but user-written rule specification modules
-  are only loaded into Cabasa after Cabasa starts running,
-  preventing Cabasa from accessing these types!
-To solve this problem, rule definitions should not use \texttt{CAVals'} directly,
-  but instead should use the following existential wrapper:
-
-\mint{haskell}|data CAVals = forall t. Eq t => CAVals (CAVals' t)|
-
-In practise, this just translates into
-  wrapping an ordinary \texttt{CAVals'} value with the \texttt{CAVals} constructor.
-A rule specification module should then consist of
-  --- at the very minimum ---
-  one value, named \texttt{myCA}\footnotemark, with type \texttt{CAVals}.
-Putting this all together,
-  an annotated example of a CA definition (in this case, Conway's Game of Life) can be found in Listing~\ref{lst:agol}.
-% This is adapted from the example \href{haskell/CA.html}{here}.
-However, this rule would usually be written as Listing~\ref{lst:ugol},
-  which uses the utility functions from \texttt{CA.Utils}.
-
-\footnotetext{%
-There's nothing particularly special about this name,
-    except that's where I've programmed Cabasa to look by default.
-In future versions, there will be a setting to change the location where Cabasa looks.}
-
-\begin{longlisting}
-\begin{minted}{haskell}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE RecordWildCards  #-}
-
-module Life where
-
--- The module containing the Universe type and others,
--- from the cellular-automata package
-import CA.Universe
-
--- The module containing the CAVals and CAVals' records
-import Hint.Interop
-
-data State = Alive | Dead deriving (Eq, Show)
-
-myCA :: CAVals
-myCA = CAVals $ CAVals' {..}
-  where
-    -- This is the rule itself. It needs to return an effectful rule though,
-    -- so the function is fed to `pureRule'.
-    _rule = pureRule conwayLife
-
-    -- This is the list of states which are shown in the state selection box;
-    -- `Dead' is shown as state 0 and `Alive' is shown as state 1.
-    _states = [Dead, Alive]
-
-    -- This is the size of the default pattern shown when the rule is first loaded.
-    _defaultSize = (100, 100)
-    -- And the state at each point of the default pattern:
-    _defaultVal _point = Dead
-
-    -- This is the function which determines what colour each state is displayed
-    -- as.
-    _state2color Dead  = (1,1,1)   -- white
-    _state2color Alive = (0,0,0)   -- black
-
-    -- These two functions convert states to integers and vice versa. They are
-    -- used to save and load patterns to and from a file.
-    _encodeInt Dead  = 0
-    _encodeInt Alive = 1
-    _decodeInt 1 = Alive
-    _decodeInt _ = Dead
-
-    -- This function returns the name for each rule as a string.
-    _getName = Just . show
-
-conwayLife :: CARule Point State
-conwayLife p u =
-    let surrounds = fmap (flip peek u) $ mkNbhd p
-        numAlive  = count surrounds
-    in
-        case peek p u of
-            Dead  -> if numAlive == 3          then Alive else Dead
-            Alive -> if numAlive `elem` [2, 3] then Alive else Dead
-  where
-    mkNbhd (Point x y) = [ Point (x-1) (y-1)
-                         , Point  x    (y-1)
-                         , Point (x+1) (y-1)
-                         , Point (x-1)  y
-                         , Point (x+1)  y
-                         , Point (x-1) (y+1)
-                         , Point  x    (y+1)
-                         , Point (x+1) (y+1)
-                         ]
-
-count :: [State] -> Integer
-count = sum . fmap (\case { Alive -> 1 ; Dead -> 0 })
-\end{minted}
-\caption{Annotated Conway's Game of Life in Haskell}
-\label{lst:agol}
-\end{longlisting}
-
-\begin{listing}[!b]
-\begin{minted}{haskell}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards  #-}
-
-module Life where
-
-import CA.Universe
-import CA.Utils hiding (conwayLife)
-import Hint.Interop
-
-data State = Alive | Dead deriving (Eq, Show)
-
-myCA :: CAVals
-myCA = CAVals $ CAVals' {..}
-  where
-    _rule = pureRule conwayLife
-    _states = [Dead, Alive]
-    _defaultSize = (100, 100)
-    _defaultVal  = const Dead
-    _state2color Dead  = (1,1,1)
-    _state2color Alive = (0,0,0)
-    _encodeInt Dead  = 0
-    _encodeInt Alive = 1
-    _decodeInt 1 = Alive
-    _decodeInt _ = Dead
-    _getName = Just . show
-
-conwayLife :: CARule Point State
-conwayLife p u =
-    let aliveCount = count (==Alive) $ experiment (moore False) p u in
-        case peek p u of
-            Dead  -> if aliveCount == 4          then Alive else Dead
-            Alive -> if aliveCount `elem` [2, 3] then Alive else Dead
-\end{minted}
-\caption{Conway's Game of Life in Haskell using \texttt{CA.Utils}}
-\label{lst:ugol}
-\end{listing}
 
 \appendix
 

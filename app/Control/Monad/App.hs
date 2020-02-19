@@ -26,7 +26,6 @@ module Control.Monad.App
     , GtkMouseEvent(..)
     ) where
 
-import Control.Applicative ((<|>))
 import Control.Concurrent (killThread, forkIO, threadDelay)
 import Data.Int (Int32)
 import Data.IORef
@@ -42,20 +41,19 @@ import CA.Universe (Point(..), Coord(..), CARuleA)
 import Control.Monad.Random.Strict (newStdGen, Rand, StdGen)
 import Control.Monad.Reader
 import qualified Data.Finite as F
-import Data.Text (pack, uncons)
+import Data.Text (pack)
 import qualified Data.Text.IO as TIO
 import qualified GI.Cairo
 import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Gdk (ModifierType(ModifierTypeButton1Mask), EventScroll)
 import qualified GI.Gdk
 import GI.Gtk hiding (FileChooserAction)
-import Hint
 import qualified GI.Gtk  -- for FileChooserAction
 import Data.GI.Base.Attributes
 import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
 import Graphics.Rendering.Cairo.Internal (Render(runRender))
 import Lens.Micro hiding (set)
-import System.FilePath ((</>), (-<.>), takeBaseName, takeExtension)
+import System.FilePath ((</>), (-<.>), takeBaseName)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
@@ -360,38 +358,21 @@ instance MonadApp App where
             return fChooser
 
 
-    withRuleFileDialog act filterType callback = withApp $ \app -> do
-        withFileDialogChoice (getRuleFileChooser app filterType) (toGtkAction act) $ \fChooser fName -> do
+    withRuleFileDialog act callback = withApp $ \app -> do
+        withFileDialogChoice (getRuleFileChooser app) (toGtkAction act) $ \_ fName -> do
             -- There are two places where the rule type can be
             -- specified: the extension of the chosen file, or the
             -- chosen file type filter. We use the former if it is
             -- present, otherwise use the latter.
-            let ruleTypeExt = case takeExtension fName of
-                    ".alp" -> Just T.ALPACA
-                    ".hs"  -> Just T.Hint
-                    ".lhs" -> Just T.Hint
-                    _      -> Nothing
-            ruleTypeFilter <- fileChooserGetFilter fChooser >>= \case
-                Just fFilter -> fileFilterGetName fFilter <&> \case
-                    -- As we know that there are only two filters, the first
-                    -- character of the filter offers a useful heuristic to
-                    -- determine the file type
-                    Just (uncons -> Just (x, _)) -> case x of
-                        'A' -> Just T.ALPACA
-                        'H' -> Just T.Hint
-                        _   -> Nothing
-                    _ -> Nothing
-                Nothing -> return Nothing
-            let ruleType = ruleTypeExt <|> ruleTypeFilter
             case act of
-                SaveFile -> runApp (callback ruleType () fName) app
+                SaveFile -> runApp (callback () fName) app
                 OpenFile -> do
                     p <- TIO.readFile fName
-                    runApp (callback ruleType p fName) app
+                    runApp (callback p fName) app
       where
         -- Returns a file chooser preconfigured to save or open rule files
-        getRuleFileChooser :: T.Application -> Maybe T.Rule -> GI.Gtk.FileChooserAction -> IO FileChooserNative
-        getRuleFileChooser app filterType action = do
+        getRuleFileChooser :: T.Application -> GI.Gtk.FileChooserAction -> IO FileChooserNative
+        getRuleFileChooser app action = do
             fChooser <- fileChooserNativeNew
                 Nothing
                 (Just $ app ^. T.setRuleWindow)
@@ -402,17 +383,7 @@ instance MonadApp App where
             fileFilterSetName alpacaFilter $ Just "ALPACA files"
             fileFilterAddPattern alpacaFilter "*.alp"
             fileChooserAddFilter fChooser alpacaFilter
-
-            haskellFilter <- fileFilterNew
-            fileFilterSetName haskellFilter $ Just "Haskell files"
-            fileFilterAddPattern haskellFilter "*.hs"
-            fileFilterAddPattern haskellFilter "*.lhs"
-            fileChooserAddFilter fChooser haskellFilter
-
-            case filterType of
-                Nothing -> pure ()
-                Just T.ALPACA -> fileChooserSetFilter fChooser alpacaFilter
-                Just T.Hint   -> fileChooserSetFilter fChooser haskellFilter
+            fileChooserSetFilter fChooser alpacaFilter
 
             return fChooser
 
@@ -469,21 +440,11 @@ instance MonadApp App where
     getRuleText = asks (^. T.newRuleBuf) >>= \newRuleBuf -> liftIO $ do
         (start, end) <- textBufferGetBounds newRuleBuf
         textBufferGetText newRuleBuf start end True
-    getCurrentLang = withApp $ \app -> do
-        alpacaOn <- checkMenuItemGetActive (app ^. T.alpacaLang)
-        haskellOn <- checkMenuItemGetActive (app ^. T.haskellLang)
-        return $ if | alpacaOn  -> T.ALPACA
-                    | haskellOn -> T.Hint
-                    | otherwise -> error "Error in radio button at getCurrentLang!\nThis is a bug; please report it to the package maintainer."
     writeRule path rule = do
         liftIO $ TIO.writeFile path rule
         writeIORef' T.currentRulePath (Just path)
-    setRuleWindowRule ruleText ruleType = withApp $ \app -> do
-        setTextBufferText (app ^. T.newRuleBuf) ruleText
-        case ruleType of
-            T.ALPACA -> checkMenuItemSetActive (app ^. T.alpacaLang)  True
-            T.Hint   -> checkMenuItemSetActive (app ^. T.haskellLang) True
-    setCurrentRule path text ruleType = withApp $ \app ->
+    setRuleWindowRule ruleText = withApp $ \app -> setTextBufferText (app ^. T.newRuleBuf) ruleText
+    setCurrentRule path text = withApp $ \app ->
         parseRule app text >>= \case
             Left err -> showMessageDialog (app ^. T.window)
                                         MessageTypeError
@@ -524,11 +485,9 @@ instance MonadApp App where
         -- e.g. an ALPACA initial configuration has been defined and loaded into
         -- '_defaultPattern').
         parseRule :: T.Application -> String -> IO (Either String (CAVals, Bool))
-        parseRule app = case ruleType of
-                T.ALPACA -> \rule -> do
-                        gridSize <- getSetting' T.gridSize app
-                        return $ fmap (mkALPACAGrid gridSize) $ runALPACA @StdGen rule
-                T.Hint   -> (fmap . fmap . fmap) (,False) runHint
+        parseRule app rule = do
+            gridSize <- getSetting' T.gridSize app
+            return $ fmap (mkALPACAGrid gridSize) $ runALPACA @StdGen rule
           where
             mkALPACAGrid (numcols, numrows)
                         (AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n))

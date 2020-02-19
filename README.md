@@ -8,9 +8,9 @@ In contrast to other CA simulation applications which only allow a limited set o
 
 ## Features
 
-- Allows the use of two flexible languages to specify CAs:
-  the [ALPACA](https://github.com/catseye/ALPACA/blob/0b2d57b8739dc240969c62c8e1cd13c1863770e0) language (originally by @cpressey)
-  as well as the Haskell programming language.
+- Uses the
+  [ALPACA](https://github.com/catseye/ALPACA/blob/0b2d57b8739dc240969c62c8e1cd13c1863770e0) language (originally by @cpressey)
+  to create CAs, providing more flexibility than many other CA simulation software
 - An interactive user interface based on the widely-used [Golly](http://golly.sourceforge.net/) CA simulator
   allowing patterns to be drawn easily.
 - Able to open and save patterns in the [MCell](http://psoup.math.wisc.edu/mcell/ca_files_formats.html#MCell) file format.
@@ -25,13 +25,10 @@ For more details on how to do this, see [`BUILDING.md`](BUILDING.md).
 ### Q: Are there any downloads?
 
 A: Not yet.
-This is because Cabasa relies on the Haskell programming language to work;
-  if a Haskell package repository is not available, some parts of Cabasa will not work properly.
+This is because Cabasa used to rely on the Haskell programming language to work;
+  if a Haskell package repository is not available, some parts of Cabasa would not work properly.
 Unfortunately, it is fairly hard to package a repository of this sort with Cabasa.
-The program is still usable even if this repository is not available,
-  but I would like to fix this problem before I create any downloads.
-
-Note that this problem does not affect copies of Cabasa which are run with `stack exec`.
+This problem has recently been fixed, but there are still no downloads just yet.
 
 ### Q: How is this different to Golly/MCell/my favourite CA program?
 
