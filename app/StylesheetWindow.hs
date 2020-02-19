@@ -1,100 +1,51 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedLabels    #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module StylesheetWindow (addStylesheetWindowHandlers) where
+module StylesheetWindow
+    ( setBtnHandler
+    , saveSheetHandler
+    , saveSheetAsHandler
+    , openSheetHandler
+    ) where
 
 import Prelude hiding (readFile, writeFile)
 
 import Control.Monad (void)
-import Control.Monad.IO.Class (liftIO)
-import Data.IORef
+import Data.Maybe (fromMaybe)
 
 import qualified CA.ALPACA.Stylesheets as SS
 import Data.Text (pack, unpack)
-import Data.Text.IO (readFile, writeFile)
-import GI.Gtk
-import Lens.Micro
-import System.FilePath
 
-import Utils
-import qualified Types as T
+import Control.Monad.App.Class
 
-addStylesheetWindowHandlers :: T.Application -> IO ()
-addStylesheetWindowHandlers app = do
-    _ <- on (app ^. T.editSheetWindow) #deleteEvent $ \_ -> liftIO $ stylesheetWindowDeleteHandler app
-
-    _ <- on (app ^. T.editSheetWindowSetBtn) #clicked $ setBtnHandler app
-
-    _ <- on (app ^. T.saveSheetAs) #activate $ saveSheetHandler app
-    _ <- on (app ^. T.saveSheetAs) #activate $ saveSheetAsHandler app
-    _ <- on (app ^. T.openSheet)   #activate $ openSheetHandler app
-    return ()
-
-stylesheetWindowDeleteHandler :: T.Application -> IO Bool
-stylesheetWindowDeleteHandler app = True <$ widgetHide (app ^. T.editSheetWindow)
-
-setBtnHandler :: T.Application -> IO ()
-setBtnHandler app = do
-    (start, end) <- textBufferGetBounds (app ^. T.sheetBuf)
-    sty <- textBufferGetText (app ^. T.sheetBuf) start end True
+setBtnHandler :: MonadApp m => m ()
+setBtnHandler = do
+    sty <- getStylesheetText
     case SS.parseStylesheet (unpack sty) of
-        Left err ->
-            showMessageDialog (app ^. T.window)
-                              MessageTypeError
-                              ButtonsTypeOk
-                              ("Parse error:\n" <> pack err)
-                              (const $ return ())
-        Right sty' -> T.modifyState app $ \(st :: T.ExistState' t) ->
-            let state2color' :: t -> (Double, Double, Double)
-                state2color' state =
-                    let fallback = (st ^. T.state2color) state
-                    in
-                        case ((st ^. T.getName) state) of
-                            Nothing -> fallback
-                            Just name ->
-                                case (lookup (SS.Class name) sty') of
-                                    Nothing -> fallback
-                                    Just rules -> case rules of
-                                        (SS.Fill (SS.RGB r g b) : _)
-                                            -> (r, g, b)
-                                        []  -> fallback
-            in st & T.state2color .~ state2color'
-    widgetQueueDraw $ app ^. T.canvas
+        Left err -> showErrorDialog $ "Parse error:\n" <> pack err
+        Right sty' -> getOps >>= \Ops{..} ->
+            setState2Color $ \state ->
+                fromMaybe (state2color state) $ do
+                    name <- getName state
+                    rules <- lookup (SS.Class name) sty'
+                    case rules of
+                        (SS.Fill (SS.RGB r g b) : _) -> return (r,g,b)
+                        [] -> Nothing
 
-saveSheetHandler :: T.Application -> IO ()
-saveSheetHandler app = readIORef (app ^. T.currentStylesheetPath) >>= \case
-    Nothing    -> saveSheetAsHandler app
-    Just fName -> writeCurrentSheet app fName
+saveSheetHandler :: MonadApp m => m ()
+saveSheetHandler = getCurrentStylesheetPath >>= \case
+    Nothing -> saveSheetAsHandler
+    Just fName -> writeCurrentSheet fName
 
-saveSheetAsHandler :: T.Application -> IO ()
-saveSheetAsHandler app = void $
-    withFileDialogChoice (getCSSFileChooser app) FileChooserActionSave $
-        const $ writeCurrentSheet app
+saveSheetAsHandler :: MonadApp m => m ()
+saveSheetAsHandler = void $ withCSSFileDialog SaveFile $ const writeCurrentSheet
 
-writeCurrentSheet :: T.Application -> FilePath -> IO ()
-writeCurrentSheet app fName = do
-    (start, end) <- textBufferGetBounds (app ^. T.sheetBuf)
-    writeFile (fName -<.> "css") =<< textBufferGetText (app ^. T.sheetBuf) start end True
-    writeIORef (app ^. T.currentStylesheetPath) (Just fName)
+writeCurrentSheet :: MonadApp m => FilePath -> m ()
+writeCurrentSheet file = getStylesheetText >>= writeSheet file
 
-openSheetHandler :: T.Application -> IO ()
-openSheetHandler app = void $
-    withFileDialogChoice (getCSSFileChooser app) FileChooserActionOpen $ \_ fName ->
-        setTextBufferText (app ^. T.sheetBuf) =<< readFile fName
-
-getCSSFileChooser :: T.Application -> FileChooserAction -> IO FileChooserNative
-getCSSFileChooser app ac = do
-    fChooser <- fileChooserNativeNew
-        Nothing
-        (Just $ app ^. T.editSheetWindow)
-        ac
-        Nothing Nothing
-
-    cssFilter <- fileFilterNew
-    fileFilterSetName cssFilter $ Just "ALPACA Stylesheets files (*.css)"
-    fileFilterAddPattern cssFilter "*.css"
-    fileChooserAddFilter fChooser cssFilter
-
-    return fChooser
+openSheetHandler :: MonadApp m => m ()
+openSheetHandler = void $ withCSSFileDialog OpenFile $ \css _ ->
+    setStylesheetWindowStylesheet $ unpack css

@@ -32,15 +32,13 @@ import Lens.Micro
 import CA.Core (pureRule)
 import CA.Universe (Coord(..), fromList, Point)
 import CA.Utils (conwayLife)
-import Canvas
-import ControlButtons
+import Control.Monad.App (runApp)
 import Hint.Interop
-import Menu
 import Paths_cabasa
-import SetRuleWindow
 import Settings (getSettingFrom', readSettings)
-import StylesheetWindow
+import Handlers
 import qualified Types as T
+import qualified Types.Application as T
 
 main :: IO ()
 main = do
@@ -98,15 +96,7 @@ main = do
                         , T._appIORefs     = ioRefs
                         }
 
-    addCanvasHandlers app
-
-    addControlButtonHandlers app
-
-    addMenuHandlers app
-
-    addSetRuleWindowHandlers app
-
-    addStylesheetWindowHandlers app
+    runApp addHandlers app
 
     on (guiObjects ^. T.window) #destroy $ mainQuit
     widgetShowAll (guiObjects ^. T.window)

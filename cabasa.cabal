@@ -36,16 +36,18 @@ executable cabasa
   main-is:             Main.hs
   other-modules:       Paths_cabasa
                      , Canvas
+                     , Control.Monad.App
+                     , Control.Monad.App.Class
                      , ControlButtons
+                     , Handlers
                      , Hint
                      , Menu
                      , Types
+                     , Types.Application
                      , SetRuleWindow
                      , Settings
-                     , SettingsDialog
                      , ShowDialog
                      , StylesheetWindow
-                     , Utils
   default-language:    Haskell2010
   build-depends:       base             >= 4.7  && < 5
                      , cabasa
@@ -66,6 +68,7 @@ executable cabasa
                      , microlens        >= 0.4  && < 0.5
                      , microlens-th     >= 0.4  && < 0.5
                      , MonadRandom      >= 0.5  && < 0.6
+                     , mtl              >= 2.2  && < 2.3
                      , process          >= 1.6  && < 1.7
                      , split            >= 0.2  && < 0.3
                      , text             >= 1.2  && < 1.3
