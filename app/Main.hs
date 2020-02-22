@@ -1,20 +1,22 @@
-{-# LANGUAGE CPP                         #-}
-{-# LANGUAGE FlexibleContexts            #-}
-{-# LANGUAGE LambdaCase                  #-}
-{-# LANGUAGE MultiWayIf                  #-}
-{-# LANGUAGE NamedFieldPuns              #-}
-{-# LANGUAGE OverloadedLabels            #-}
-{-# LANGUAGE OverloadedStrings           #-}
-{-# LANGUAGE RankNTypes                  #-}
-{-# LANGUAGE RecordWildCards             #-}
-{-# LANGUAGE ScopedTypeVariables         #-}
-{-# LANGUAGE TupleSections               #-}
-{-# LANGUAGE TypeApplications            #-}
-{-# LANGUAGE ViewPatterns                #-}
+{-# LANGUAGE CPP                                                #-}
+{-# LANGUAGE DataKinds                                          #-}
+{-# LANGUAGE FlexibleContexts                                   #-}
+{-# LANGUAGE LambdaCase                                         #-}
+{-# LANGUAGE MultiWayIf                                         #-}
+{-# LANGUAGE NamedFieldPuns                                     #-}
+{-# LANGUAGE OverloadedLabels                                   #-}
+{-# LANGUAGE OverloadedStrings                                  #-}
+{-# LANGUAGE RankNTypes                                         #-}
+{-# LANGUAGE RecordWildCards                                    #-}
+{-# LANGUAGE ScopedTypeVariables                                #-}
+{-# LANGUAGE TupleSections                                      #-}
+{-# LANGUAGE TypeApplications                                   #-}
+{-# LANGUAGE ViewPatterns                                       #-}
 {-# OPTIONS_GHC -Werror=missing-fields -fno-warn-unused-do-bind #-}
 
 module Main (main) where
 
+import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
 import Control.Monad ((>=>), (=<<), replicateM, forM_)
 import Control.Monad.IO.Class (liftIO)
@@ -22,18 +24,19 @@ import Data.Int (Int32)
 import Data.IORef
 
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
-import Data.Text
+import Data.Array (array)
+import Data.Finite (Finite)
+import Data.Text hiding (count)
 import Data.GI.Gtk.BuildFn
 import GI.Gtk hiding (init, main)
 import qualified GI.Gtk as G
 import GI.Gdk (screenGetDefault)
 import Lens.Micro
 
-import CA.Core (pureRule)
-import CA.Universe (Coord(..), fromList, Point)
-import CA.Utils (conwayLife)
+import CA.Core (pureRule, peek, CARuleA)
+import CA.Universe (Universe(Universe), Coord(..), fromList, Point, Axis(..), Point(Point))
+import CA.Utils (moore, count)
 import Control.Monad.App (runApp)
-import Hint.Interop
 import Paths_cabasa
 import Settings (getSettingFrom', readSettings)
 import Handlers
@@ -57,22 +60,25 @@ main = do
     _existState <- do
         s <- getStdGen
         (numcols, numrows) <- getSettingFrom' T.gridSize _settings
-        let _rule = pureRule conwayLife
-            _states = [False, True]
+        let _rule :: Applicative t => CARuleA t Point (Finite 2)
+            _rule = pureRule $ \p g ->
+                -- mostly copied from the cellular-automata library
+                let surrounds = count (==1) (fmap (`peek` g) $ (moore False) p) in
+                    case peek p g of
+                        0 -> if surrounds == 3          then 1 else 0
+                        1 -> if surrounds `elem` [2, 3] then 1 else 0
+                        _ -> error "error in finite - unreachable code reached!"
             _defaultSize = (Coord numcols, Coord numrows)
-            _defaultVal  = const False
-            _state2color st = if st then (0,0,0) else (1,1,1)
-            _encodeInt = fromEnum
-            _decodeInt 1 = True
-            _decodeInt _ = False
+            _defaultVal  = const 0
+            _state2color st = if st == 1 then (0,0,0) else (1,1,1)
             _getName = const Nothing
             _currentPattern =
-                ( _defaultPattern _defaultSize _defaultVal
+                ( defaultPattern _defaultSize _defaultVal
                 , s
                 )
             _saved = Nothing
             _clipboardContents = Nothing
-        newIORef $ T.ExistState (T.ExistState'{_ca=CAVals'{..}, ..})
+        newIORef $ T.ExistState (T.ExistState'{..})
     _currentPatternPath    <- newIORef @(Maybe String) Nothing
     _currentRulePath       <- newIORef @(Maybe String) Nothing
     _currentStylesheetPath <- newIORef @(Maybe String) Nothing
@@ -101,6 +107,18 @@ main = do
     on (guiObjects ^. T.window) #destroy $ mainQuit
     widgetShowAll (guiObjects ^. T.window)
     G.main
+
+-- | Get the actual pattern from the info stored in a 'CAVals''
+defaultPattern :: (Coord 'X, Coord 'Y) -> (Point -> t) -> Universe t
+defaultPattern s v = Universe $ array (bounds s) (mkPoints s v)
+  where
+      mkPoints :: (Coord 'X, Coord 'Y) -> (Point -> t) -> [(Point, t)]
+      mkPoints (w,h) getVal =
+          let ps = Point <$> [0..w-1] <*> [0..h-1]
+          in (id &&& getVal) <$> ps
+
+      bounds :: (Coord 'X, Coord 'Y) -> (Point, Point)
+      bounds (w,h) = (Point 0 0, Point (w-1) (h-1))
 
 randomColors :: IO [(Double, Double, Double)]
 randomColors = fmap (([(1, 1, 1), (0, 0, 0)]++) . tuplize) $ replicateM 3 $ randomRs @Double (0, 1) <$> newStdGen

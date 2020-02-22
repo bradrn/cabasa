@@ -34,10 +34,10 @@ import Data.Maybe (fromMaybe, isJust)
 import Data.Proxy
 import Foreign.C.Types (CInt)
 import Foreign.Ptr (castPtr)
-import GHC.TypeLits (natVal)
+import GHC.TypeLits (KnownNat, natVal)
 
 import CA.ALPACA (AlpacaData(..), runALPACA)
-import CA.Universe (Point(..), Coord(..), CARuleA)
+import CA.Universe (Point(..), Coord(..), CARuleA, Universe)
 import Control.Monad.Random.Strict (newStdGen, Rand, StdGen)
 import Control.Monad.Reader
 import qualified Data.Finite as F
@@ -58,7 +58,6 @@ import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
 import Control.Monad.App.Class
-import Hint.Interop
 import Settings
 import ShowDialog
 import qualified Types as T
@@ -122,7 +121,7 @@ data GtkMouseEvent =
 instance MonadApp App where
     getOps = do
         sRef <- asks (^. T.existState)
-        (T.ExistState s) <- liftIO $ readIORef sRef
+        (T.ExistState (s :: T.ExistState' n)) <- liftIO $ readIORef sRef
         return Ops
             { getPattern = s ^. (T.currentPattern . _1)
             , getRule = s ^. T.rule
@@ -135,9 +134,9 @@ instance MonadApp App where
                 liftIO $ writeIORef sRef $ T.ExistState $ s & T.clipboardContents .~ u
             , defaultVal = s ^. T.defaultVal
             , defaultPattern = s ^. T.defaultPattern
-            , states = s ^. T.states
-            , encodeInt = s ^. T.encodeInt
-            , decodeInt = s ^. T.decodeInt
+            , states = F.finites
+            , encodeInt = fromIntegral
+            , decodeInt = F.finite . min (natVal $ Proxy @n) . toInteger
             , state2color = s ^. T.state2color
             , setState2Color = \u ->
                 liftIO $ writeIORef sRef $ T.ExistState $ s & T.state2color .~ u
@@ -444,22 +443,19 @@ instance MonadApp App where
         liftIO $ TIO.writeFile path rule
         writeIORef' T.currentRulePath (Just path)
     setRuleWindowRule ruleText = withApp $ \app -> setTextBufferText (app ^. T.newRuleBuf) ruleText
-    setCurrentRule path text = withApp $ \app ->
-        parseRule app text >>= \case
+    setCurrentRule path text = withApp $ \app -> do
+        gridSize <- getSetting' T.gridSize app
+        case runALPACA text of
             Left err -> showMessageDialog (app ^. T.window)
                                         MessageTypeError
                                         ButtonsTypeOk
                                         (pack err)
                                         (const $ pure ())
-            Right (CAVals _ca, pressClear) -> do
+            Right ad -> mkExistState app gridSize ad $ \(Proxy :: Proxy n) pressClear getExistState -> do
                 g <- newStdGen
-                T.withState app $ \old -> do
-                    let encFn = old ^. T.encodeInt
-                        decFn = _ca ^. T.decodeInt
-                        (oldPtn, _) = old ^. T.currentPattern
-                        newPtn = (decFn . encFn) <$> oldPtn
-                    writeIORef (app ^. T.existState) $ T.ExistState $
-                        T.ExistState'{T._ca, T._currentPattern=(newPtn, g), T._saved=Nothing, T._clipboardContents=Nothing}
+                T.withState app $ \old ->
+                    let (oldPtn, _) = old ^. T.currentPattern
+                    in writeIORef (app ^. T.existState) $ getExistState (finiteClamp <$> oldPtn) g
                 modifyGeneration app (const 0)
                 writeIORef (app ^. T.currentRulePath) path
 
@@ -467,7 +463,7 @@ instance MonadApp App where
                 let curstatem = app ^. T.curstatem
                     curstate  = app ^. T.curstate
                 (listStoreClear curstatem)
-                forM_ (enumFromTo 0 $ length (_ca ^. T.states) - 1) $ \val -> do
+                forM_ (F.finites @n) $ \val -> do
                     iter <- listStoreAppend curstatem
                     val' <- toGValue (fromIntegral val :: CInt)
                     listStoreSet curstatem iter [0] [val']
@@ -478,31 +474,53 @@ instance MonadApp App where
                 -- Because we're changing the currentPattern, we need to redraw
                 widgetQueueDraw $ app ^. T.canvas
       where
-        -- 'parseRule' is the rule-parsing function, which varies depending on 'ruleType'.
-        -- If the parsing operation succeeds ('Right'), it returns a tuple; the
-        -- first element is the 'CAVals' which has been parsed, and the second is a
-        -- 'Bool' stating if the screen needs to be cleared (as it may need to be if
-        -- e.g. an ALPACA initial configuration has been defined and loaded into
-        -- '_defaultPattern').
-        parseRule :: T.Application -> String -> IO (Either String (CAVals, Bool))
-        parseRule app rule = do
-            gridSize <- getSetting' T.gridSize app
-            return $ fmap (mkALPACAGrid gridSize) $ runALPACA @StdGen rule
-          where
-            mkALPACAGrid (numcols, numrows)
-                        (AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n))
-                                    , initConfig
-                                    , stateData }) =
-                let maxVal = natVal (Proxy @n)
-                in (,isJust initConfig) $ CAVals $ CAVals'
-                    { _defaultSize = (Coord numcols, Coord numrows)
-                    , _defaultVal  = const 0
-                    , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
-                    , _encodeInt = fromInteger . F.getFinite
-                    , _decodeInt = F.finite . min (maxVal-1) . toInteger
-                    , _states = F.finites
-                    , _rule = rule
-                    , _getName = Just . fst . stateData}
+        finiteClamp :: forall n m. (KnownNat n, KnownNat m) => F.Finite n -> F.Finite m
+        finiteClamp = F.finite . min (natVal $ Proxy @m) . toInteger
+
+        -- | Create a 'T.ExistState' given an 'AlpacaData'. This
+        -- function has three outputs:
+        --
+        --     1. A 'Proxy' containing the number of states, as a
+        --     type-level number
+        --
+        --     2. A 'Bool', stating if the screen needs to be cleared
+        --     (as it may need to be if e.g. an ALPACA initial
+        --     configuration has been defined and loaded into
+        --     '_defaultPattern').
+        --
+        --     3. A function which, given a new value for the current
+        --     universe and 'StdGen', will construct the new
+        --     'T.ExistState'.
+        --
+        -- The main complication is that the three outputs need to be
+        -- existentially quantified, and GHC doesn’t support returning
+        -- a bare existential from a function, so in this case it is
+        -- simpler to represent the outputs as
+        -- '(forall n. o1 n -> o2 n -> a) -> a' rather than the
+        -- equivalent yet non-existent 'exists n. (o1 n, o2 n)'.
+        mkExistState :: T.Application
+                     -> (Int, Int)
+                     -> AlpacaData StdGen
+                     -> ( forall n. KnownNat n
+                        => Proxy n
+                        -> Bool
+                        -> (Universe (F.Finite n) -> StdGen -> T.ExistState)
+                        -> a )
+                     -> a
+        mkExistState app (numcols, numrows)
+                     (AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n'))
+                                , initConfig
+                                , stateData }) f =
+            f (Proxy @n') (isJust initConfig) $ \newUniv g -> T.ExistState $ T.ExistState'
+                { _defaultSize = (Coord numcols, Coord numrows)
+                , _defaultVal  = const 0
+                , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
+                , _rule = rule
+                , _getName = Just . fst . stateData
+                , _currentPattern = (newUniv, g)
+                , _saved = Nothing
+                , _clipboardContents = Nothing
+                }
 
     getCurrentPatternPath = readIORef' T.currentPatternPath
     setCurrentPatternPath = writeIORef' T.currentPatternPath . Just
