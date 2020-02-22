@@ -19,16 +19,6 @@ data-files:          data/cabasa.glade
                    , data/cabasa.css
                    , data/doc/UserManual.pdf
 
-library
-  -- from https://making.pusher.com/top-tips-and-tools-for-optimising-haskell/
-  ghc-options:         -Wall -threaded -funfolding-use-threshold=16 -O2 -optc-O3
-  exposed-modules:     Hint.Interop
-  hs-source-dirs:      hint-interop
-  build-depends:       base >= 4.7  && < 5
-                     , cellular-automata
-                     , MonadRandom >= 0.5 && < 0.6
-                     , array >= 0.5 && < 0.6
-
 executable cabasa
   -- from https://making.pusher.com/top-tips-and-tools-for-optimising-haskell/
   ghc-options:         -Wall -threaded -funfolding-use-threshold=16 -O2 -optc-O3
@@ -40,7 +30,6 @@ executable cabasa
                      , Control.Monad.App.Class
                      , ControlButtons
                      , Handlers
-                     , Hint
                      , Menu
                      , Types
                      , Types.Application
@@ -50,7 +39,6 @@ executable cabasa
                      , StylesheetWindow
   default-language:    Haskell2010
   build-depends:       base             >= 4.7  && < 5
-                     , cabasa
                      , cellular-automata
                      , cellular-automata-alpaca
                      , aeson            >= 1.3  && < 1.4
@@ -64,7 +52,6 @@ executable cabasa
                      , gi-gtk           >= 3.0  && < 3.1
                      , gi-gtk-hs        >= 0.3  && < 0.4
                      , haskell-gi-base  >= 0.21 && < 0.22
-                     , hint             >= 0.7  && < 0.9
                      , microlens        >= 0.4  && < 0.5
                      , microlens-th     >= 0.4  && < 0.5
                      , MonadRandom      >= 0.5  && < 0.6

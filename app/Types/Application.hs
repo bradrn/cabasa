@@ -9,20 +9,23 @@
 
 module Types.Application where
 
+import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
 import Control.Monad.IO.Class (liftIO)
 import Data.Functor.Const
 import Data.IORef
+import GHC.TypeLits (KnownNat)
 
 import CA.Universe
-import Control.Monad.Random.Strict (MonadIO, StdGen)
+import Control.Monad.Random.Strict (MonadIO, StdGen, Rand)
+import Data.Array (array)
+import Data.Finite (Finite)
 import GI.Gtk hiding (Settings, Application)
 import Language.Haskell.TH.Syntax (mkName)
 import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
 import System.FilePath (takeBaseName)
 
-import Hint.Interop
 import Types
 
 data Application = Application
@@ -73,8 +76,6 @@ data GuiObjects = GuiObjects
     , _setRuleWindow         :: Window
     , _setRuleBtn            :: Button
     , _newRuleBuf            :: TextBuffer
-    , _alpacaLang            :: RadioMenuItem
-    , _haskellLang           :: RadioMenuItem
     , _saveRule              :: MenuItem
     , _saveRuleAs            :: MenuItem
     , _openRule              :: MenuItem
@@ -96,19 +97,22 @@ data GuiObjects = GuiObjects
     , _newNumRowsAdjustment  :: Adjustment
     }
 
-data ExistState' t = ExistState'
-    {
-      _ca :: CAVals' t
-    , _currentPattern  :: (Universe t, StdGen)
+data ExistState' n = ExistState'
+    { _rule :: Point -> Universe (Finite n) -> Rand StdGen (Finite n)  -- ^ The rule itself
+    , _defaultSize :: (Coord 'X, Coord 'Y)           -- ^ Default (width, height) of grid
+    , _defaultVal  :: Point -> Finite n                     -- ^ The default value at each point
+    , _state2color :: Finite n -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
+    , _getName :: Finite n -> Maybe String                  -- ^ Given a state, get its optional name as a string. Used with ALPACA stylesheets.
+    , _currentPattern  :: (Universe (Finite n), StdGen)
     -- The grid which is to be restored when the 'reset' button is pressed.
-    , _saved           :: Maybe (Universe t, Pos)
+    , _saved           :: Maybe (Universe (Finite n), Pos)
 
     -- The current contents of the clipboard, if any. GTK does provide
     -- an interface to the OS clipboard, but it's fairly tricky to
     -- use, so we just emulate our own clipboard.
-    , _clipboardContents :: Maybe (Universe t)
+    , _clipboardContents :: Maybe (Universe (Finite n))
     }
-data ExistState = forall t. Eq t => ExistState (ExistState' t)
+data ExistState = forall n. KnownNat n => ExistState (ExistState' n)
 
 data IORefs = IORefs
   {
@@ -155,7 +159,6 @@ data IORefs = IORefs
 -- Basically this is just makeClassy, but we're changing the name of the
 -- generated lens because makeClassy does it with the wrong capitalisation
 -- (it does e.g. CAVals' -> cAVals' when we want CAVals' -> caVals')
-flip makeLensesWith ''CAVals' $ classyRules & lensClass .~ const (Just (mkName "HasCAVals'", mkName "caVals'"))
 flip makeLensesWith ''IORefs  $ classyRules & lensClass .~ const (Just (mkName "HasIORefs" , mkName "ioRefs" ))
 
 getCurrentRuleName :: Application -> IO (Maybe String)
@@ -164,45 +167,53 @@ getCurrentRuleName app = (fmap . fmap) takeBaseName $ readIORef (app ^. currentP
 makeClassy ''GuiObjects
 
 makeLenses ''ExistState'
-instance HasCAVals' (ExistState' t) t where caVals' = ca
 
 makeLenses ''Application
 instance HasIORefs Application where ioRefs = appIORefs
 instance HasGuiObjects Application where guiObjects = appGuiObjects
 
-class HasDefaultPattern c t | c -> t where
-    defaultPattern :: SimpleGetter c (Universe t)
+-- | Get the actual pattern from the info stored in a 'CAVals''
+_defaultPattern :: (Coord 'X, Coord 'Y) -> (Point -> t) -> Universe t
+_defaultPattern s v = Universe $ array (bounds s) (mkPoints s v)
+  where
+      mkPoints :: (Coord 'X, Coord 'Y) -> (Point -> t) -> [(Point, t)]
+      mkPoints (w,h) getVal =
+          let ps = Point <$> [0..w-1] <*> [0..h-1]
+          in (id &&& getVal) <$> ps
 
-instance HasCAVals' c t => HasDefaultPattern c t where
-    defaultPattern = \out vals ->
-        let s = vals ^. defaultSize
-            v = vals ^. defaultVal
-        in retag $ out $ _defaultPattern s v
-      where
-        retag :: Const x a -> Const x b
-        retag (Const x) = Const x
+      bounds :: (Coord 'X, Coord 'Y) -> (Point, Point)
+      bounds (w,h) = (Point 0 0, Point (w-1) (h-1))
+
+defaultPattern :: SimpleGetter (ExistState' n) (Universe (Finite n))
+defaultPattern = \out vals ->
+    let s = vals ^. defaultSize
+        v = vals ^. defaultVal
+    in retag $ out $ _defaultPattern s v
+  where
+    retag :: Const x a -> Const x b
+    retag (Const x) = Const x
 
 -- ExistsState is an existential, so it's hard to use lenses with it; here's
 -- some functions to make it easier to work with ExistsState inside Application
 
-modifyState :: Application -> (forall t. Eq t => ExistState' t -> ExistState' t) -> IO ()
+modifyState :: Application -> (forall n. ExistState' n -> ExistState' n) -> IO ()
 modifyState app f =
     modifyIORef' (app ^. existState) $
         \(ExistState x) -> ExistState (f x)
 
 modifyStateM :: MonadIO m
              => Application
-             -> (forall t. Eq t => ExistState' t -> m (ExistState' t)) -> m ()
+             -> (forall n. ExistState' n -> m (ExistState' n)) -> m ()
 modifyStateM app f = do
     let existState' = app ^. existState
     (ExistState s') <- liftIO $ readIORef existState'
     newState <- f s'
     liftIO $ writeIORef existState' $ ExistState newState
 
-writeState :: Eq t => Application -> ExistState' t -> IO ()
+writeState :: KnownNat n => Application -> ExistState' n -> IO ()
 writeState app t = writeIORef (app ^. existState) $ ExistState t
 
-withState :: MonadIO m => Application -> (forall t. ExistState' t -> m a) -> m a
+withState :: MonadIO m => Application -> (forall t. KnownNat t => ExistState' t -> m a) -> m a
 withState app f = do
     (ExistState s') <- liftIO $ readIORef $ app ^. existState
     f s'

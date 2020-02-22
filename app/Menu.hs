@@ -23,7 +23,7 @@ import Data.Ix (range)
 import qualified CA.Format.MCell as MC
 import Data.Text (pack, unpack)
 import Lens.Micro hiding (set)
-import System.FilePath (takeExtension, (-<.>))
+import System.FilePath ((-<.>))
 
 import CA.Core (peek, evolve)
 import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
@@ -148,15 +148,11 @@ openPattern = void $
                                     showQueryDialog
                                         ("Could not find the specified rule '" <> pack rule' <> "'.\nDo you want to find this rule manually?")
                                         (return Nothing) $
-                                        withRuleFileDialog OpenFile Nothing $ const (const pure)
+                                        withRuleFileDialog OpenFile $ const pure
                                 case rulePath of
                                     Nothing -> pure ()
                                     Just (file, contents) -> do
-                                        let ruleType = case (takeExtension file) of
-                                                ".hs"  -> T.Hint
-                                                ".alp" -> T.ALPACA
-                                                _ -> T.ALPACA -- guess
-                                        setCurrentRule (Just file) (unpack contents) ruleType
+                                        setCurrentRule (Just file) (unpack contents)
                 getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const $ decodeInt <$> universe
                 setCurrentPatternPath fName
   where
