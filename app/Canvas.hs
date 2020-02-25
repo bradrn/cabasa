@@ -206,9 +206,9 @@ represented by actualBs and the various Coord values.
 
     setLineWidth 1.5
     when (_cellHeight > 2) $
-        for_ [boundsTop actualBs..boundsBottom actualBs] $ \row -> do
-            setSourceRGBA 0 0 0 (getOpacity row)
-            let yCoord = (__ $ row - boundsTop viewportBs) * _cellHeight
+        for_ [topRowCoord..bottomRowCoord] $ \row -> do
+            setSourceRGBA 0 0 0 (getOpacity $ row + _topYCoord)
+            let yCoord = (__ row) * _cellHeight
                 xCoordLeft  = (__ leftColCoord ) * _cellWidth
                 xCoordRight = (__ rightColCoord) * _cellWidth
             -- Draw a horizontal line at yCoord
@@ -217,9 +217,9 @@ represented by actualBs and the various Coord values.
             stroke
 
     when (_cellWidth > 2) $
-        for_ [boundsLeft actualBs..boundsRight actualBs] $ \col -> do
-            setSourceRGBA 0 0 0 (getOpacity col)
-            let xCoord = (__ $ col - boundsLeft viewportBs) * _cellWidth
+        for_ [leftColCoord..rightColCoord] $ \col -> do
+            setSourceRGBA 0 0 0 (getOpacity $ col + _leftXCoord)
+            let xCoord = (__ $ col) * _cellWidth
                 yCoordTop    = (__ topRowCoord   ) * _cellHeight
                 yCoordBottom = (__ bottomRowCoord) * _cellHeight
             -- Draw a vertical line at xCoord
