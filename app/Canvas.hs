@@ -136,19 +136,57 @@ drawCanvas ctx = getOps >>= \Ops{..} -> do
     return True
 
 renderUniverse :: MonadRender m
-               => (Double, Double)
-               -> Universe (Double, Double, Double)
-               -> T.Pos
-               -> Maybe (Point, Point)
-               -> Maybe (Point, Point)
+               => (Double, Double)                   -- ^ Size of the screen, in pixels
+               -> Universe (Double, Double, Double)  -- ^ Universe to display, with cells being colours represented as @(r,g,b)@ tuples
+               -> T.Pos                              -- ^ Position of the viewport
+               -> Maybe (Point, Point)               -- ^ Area (if any) which has been selected
+               -> Maybe (Point, Point)               -- ^ Area (if any) which is highlighted in pasting mode
                -> m ()
 renderUniverse (w, h) grid T.Pos{..} selection pasteSelection = do
 {-
-This is a bit complex. The universe is finite, so it is possible to move the
-viewport to a place which is outside the universe. In this case, only part of
-the universe can be displayed, as in the following graphic, where . represents
-the universe, solid lines represent the viewport and outlined lines represent
-the part of the universe shown on the canvas:
+This function is complex enough to deserve some explanation. There are
+three main inputs to this function to describe the position of the
+universe on the screen:
+
+    * The ‘grid’ or ‘universe’, which stores the colours of the cells
+      to be displayed.
+
+    * The ‘viewport’, which represents the part of the grid which is
+      shown on the screen. The viewport is described in terms of its
+      top-left point, represented in cell coordinates (i.e. 1 unit = 1
+      cell) relative to the top-left of the grid; its width and height
+      are taken to be the width and height of the Cabasa window (given
+      as @(w,h)@).
+
+    * The ‘cell size’, which stores the width and height of each cell.
+
+The grid is given as the @grid@ argument; the viewport and cell size
+are given together as the @T.Pos{..}@ argument.
+
+Using these, we can then calculate the following values:
+
+    * @viewportBs@ is the result of expressing the viewport as a
+      'Bounds' object; this contains the left, top, right and bottom
+      coordinates of the viewport, all represented relative to the
+      top-left of the grid and expressed in cell coordinates.
+
+    * @actualBs@ is the result of clipping @viewportBs@ so that it
+      does not go outside the grid; the corresponding value @clipped@
+      is the part of @grid@ which does not go outside the
+      viewport. These two values should coincide: the area of @grid@
+      which is used in @clipped@ should occupy the coordinates
+      expressed in @actualBs@.
+
+    * @leftColCoord@, @rightColCoord@, @topRowCoord@ and
+      @bottomRowCoord@ are the x or y coordinates of the leftmost,
+      rightmost, topmost and bottommost rows or columns respectively.
+      They are expressed in cell coordinates relative to the top-left
+      of the SCREEN (not the viewport!).
+
+Perhaps a diagram might help. Here, the dots represent the grid, the
+solid box represents the viewport/@viewportBs@, and the inner box
+with doubled lines represents @actualBs@:
+
 ┌──────────────┐
 │              │
 │              │
@@ -160,10 +198,12 @@ the part of the universe shown on the canvas:
 └──────╨───────┘.....
         .............
         .............
-These parts are represented using Pos, Bounds and Coord values as follows:
+
+And all the various values relate to this as follows:
+
 ┌────────────────────────────────────────────┐
-│ Pos{..}               ^                 ^  │
-│ viewportBs :: Bounds  |                 |  │
+│ viewportBs :: Bounds  ^                 ^  │
+│                       |                 |  │
 │                       |topRowCoord      |  │
 │                       |                 |  │
 │                       |                 |  │
@@ -180,9 +220,6 @@ These parts are represented using Pos, Bounds and Coord values as follows:
 │  rightColCoord      ║                   |  │
 │                     ║                   v  │
 └─────────────────────╨──────────────────────┘
-That is, the viewport is represented using Pos{..} (the third argument) and
-viewportBs, and the part of the universe which is shown on the canvas is
-represented by actualBs and the various Coord values.
 -}
     let viewportBs = Bounds
             { boundsLeft = _leftXCoord
@@ -196,7 +233,6 @@ represented by actualBs and the various Coord values.
         rightColCoord = boundsRight actualBs - boundsLeft viewportBs + 1
         topRowCoord    = boundsTop    actualBs - boundsTop viewportBs
         bottomRowCoord = boundsBottom actualBs - boundsTop viewportBs + 1
-
 
     for_ (zip [fromIntegral topRowCoord..] clipped) $ \(i, row) ->
         for_ (zip [fromIntegral leftColCoord..] row) $ \(j, (r, g, b)) -> do
