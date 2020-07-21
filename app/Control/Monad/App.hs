@@ -118,7 +118,7 @@ data GtkMouseEvent =
     ) => GtkMouseEvent ev
 
 
-instance MonadApp App where
+instance GetOps App where
     getOps = do
         sRef <- asks (^. T.existState)
         (T.ExistState (s :: T.ExistState' n)) <- liftIO $ readIORef sRef
@@ -143,118 +143,10 @@ instance MonadApp App where
             , getName = s ^. T.getName
             }
 
+instance Windows App where
     mainQuit = liftIO GI.Gtk.mainQuit
     setRuleWindowDelete = asks (^. T.setRuleWindow) >>= liftIO . widgetHide
     stylesheetWindowDelete = asks (^. T.editSheetWindow) >>= liftIO . widgetHide
-
-    getCurrentMode = readIORef' T.currentMode
-    setMode m = do
-        writeIORef' T.currentMode m
-        asks (^. T.drawopts) >>= \w ->
-            widgetSetSensitive w $ m == T.DrawMode
-    setPastePending = modifyIORefA' T.currentMode T.PastePendingMode
-    getCurrentDrawingState = ask >>= \app -> liftIO $
-        comboBoxGetActiveIter (app ^. T.curstate) >>= \case
-            (False, _) -> return 0
-            (True, iter) -> treeModelGetValue (app ^. T.curstatem) iter 0 >>= (fmap fromIntegral . fromGValue @Int32)
-
-    togglePlayThread preOnAct onAct =
-        readIORef' T.runThread >>= \case
-            Just t -> do
-                liftIO $ killThread t
-                writeIORef' T.runThread Nothing
-                setPlayBtnIcon
-            Nothing -> do
-                _ <- preOnAct
-                app <- ask
-                t <- liftIO $ forkIO $ forever $ flip runApp app $ do
-                    _ <- onAct
-                    readIORef' T.delay >>= liftIO . threadDelay
-                writeIORef' T.runThread (Just t)
-                setPauseBtnIcon
-    forceKillThread =
-        readIORef' T.runThread >>= \case
-            Nothing -> return ()
-            Just t -> do
-                liftIO $ killThread t
-                writeIORef' T.runThread (Just t)
-                setPlayBtnIcon
-
-    saveRestorePattern = withApp $ \app -> do
-        p <- readIORef $ app ^. T.pos
-        T.modifyState app $ \state ->
-            let T.ExistState'{T._currentPattern=(g, _), T._saved=s} = state
-            in state & T.saved .~ Just (fromMaybe (g, p) s)
-    restorePattern = do
-        app <- ask
-        liftIO $ T.modifyStateM app $ \state ->
-            case state ^. T.saved of
-                Just prev -> do
-                    writeIORef (app ^. T.pos) $ snd prev
-                    return $ state & T.saved .~ Nothing
-                                & (T.currentPattern . _1) .~ fst prev
-                Nothing -> pure state
-        redrawCanvas
-    resetRestorePattern = withApp $ \app ->
-        T.modifyState app $ T.saved .~ Nothing
-
-    modifyGen f = withApp $ flip modifyGeneration f
-    modifyDelay f = do
-        old <- readIORef' T.delay
-        let new = f old
-        writeIORef' T.delay new
-        asks (^. T.delayLbl) >>= \l -> liftIO $ labelSetText l (pack $ show new)
-    setCoordsLabel l = asks (^. T.coordsLbl) >>= flip labelSetText l
-
-    getSelection = readIORef' T.selection
-    setSelection s = writeIORef' T.selection s >> redrawCanvas
-
-    getPos = readIORef' T.pos
-    modifyPos f = modifyIORefA' T.pos f >> redrawCanvas
-
-    modifyCellPos fCell fX fY = do
-        ask >>= \app -> liftIO $
-            modifyIORef (app ^. T.pos) $ over T.cellWidth  fCell
-                                       . over T.cellHeight fCell
-                                       . over T.leftXCoord fX
-                                       . over T.topYCoord  fY
-        redrawCanvas
-
-    recordNewMousePoint p = do
-        lastPoint <- readIORef' T.lastPoint
-        writeIORef' T.lastPoint $ Just p
-        return $ case lastPoint of
-            Nothing -> NewPoint
-            Just lp ->
-                if lp == p
-                then NoDiff
-                else PointDiff (getDiff lp p)
-      where
-        getDiff (Point lastX lastY) (Point thisX thisY) =
-            Point (thisX-lastX) (thisY-lastY)
-    eraseMousePointRecord = writeIORef' T.lastPoint Nothing
-
-    type MouseEvent App = GtkMouseEvent
-    getMouseEventInfo (GtkMouseEvent ev) = liftIO $ do
-        s <- get ev #state
-        x <- get ev #x
-        y <- get ev #y
-        return (ModifierTypeButton1Mask `elem` s, (x, y))
-
-    type ScrollEvent App = EventScroll
-    getScrollEventInfo ev = liftIO $ do
-        s <- get ev #direction >>= pure . \case
-            GI.Gdk.ScrollDirectionUp -> ScrollDirectionUp
-            GI.Gdk.ScrollDirectionDown -> ScrollDirectionDown
-            _ -> ScrollDirectionOther
-        x <- get ev #x
-        y <- get ev #y
-        return (s, (x, y))
-
-    getPasteSelectionOverlay = readIORef' T.pasteSelectionOverlay
-    setPasteSelectionOverlay o = do
-        writeIORef' T.pasteSelectionOverlay o
-        redrawCanvas
 
     runGridSizeDialog (cols, rows) callback = do
         colsAdj <- asks (^. T.newNumColsAdjustment)
@@ -409,6 +301,121 @@ instance MonadApp App where
 
             return fChooser
 
+instance Modes App where
+    getCurrentMode = readIORef' T.currentMode
+    setMode m = do
+        writeIORef' T.currentMode m
+        asks (^. T.drawopts) >>= \w ->
+            widgetSetSensitive w $ m == T.DrawMode
+    setPastePending = modifyIORefA' T.currentMode T.PastePendingMode
+    getCurrentDrawingState = ask >>= \app -> liftIO $
+        comboBoxGetActiveIter (app ^. T.curstate) >>= \case
+            (False, _) -> return 0
+            (True, iter) -> treeModelGetValue (app ^. T.curstatem) iter 0 >>= (fmap fromIntegral . fromGValue @Int32)
+
+instance PlayThread App where
+    togglePlayThread preOnAct onAct =
+        readIORef' T.runThread >>= \case
+            Just t -> do
+                liftIO $ killThread t
+                writeIORef' T.runThread Nothing
+                setPlayBtnIcon
+            Nothing -> do
+                _ <- preOnAct
+                app <- ask
+                t <- liftIO $ forkIO $ forever $ flip runApp app $ do
+                    _ <- onAct
+                    readIORef' T.delay >>= liftIO . threadDelay
+                writeIORef' T.runThread (Just t)
+                setPauseBtnIcon
+    forceKillThread =
+        readIORef' T.runThread >>= \case
+            Nothing -> return ()
+            Just t -> do
+                liftIO $ killThread t
+                writeIORef' T.runThread (Just t)
+                setPlayBtnIcon
+
+instance SaveRestorePattern App where
+    saveRestorePattern = withApp $ \app -> do
+        p <- readIORef $ app ^. T.pos
+        T.modifyState app $ \state ->
+            let T.ExistState'{T._currentPattern=(g, _), T._saved=s} = state
+            in state & T.saved .~ Just (fromMaybe (g, p) s)
+    restorePattern = do
+        app <- ask
+        liftIO $ T.modifyStateM app $ \state ->
+            case state ^. T.saved of
+                Just prev -> do
+                    writeIORef (app ^. T.pos) $ snd prev
+                    return $ state & T.saved .~ Nothing
+                                & (T.currentPattern . _1) .~ fst prev
+                Nothing -> pure state
+        redrawCanvas
+    resetRestorePattern = withApp $ \app ->
+        T.modifyState app $ T.saved .~ Nothing
+
+instance EvolutionSettings App where
+    modifyGen f = withApp $ flip modifyGeneration f
+    modifyDelay f = do
+        old <- readIORef' T.delay
+        let new = f old
+        writeIORef' T.delay new
+        asks (^. T.delayLbl) >>= \l -> liftIO $ labelSetText l (pack $ show new)
+    setCoordsLabel l = asks (^. T.coordsLbl) >>= flip labelSetText l
+
+instance Canvas App where
+    getSelection = readIORef' T.selection
+    setSelection s = writeIORef' T.selection s >> redrawCanvas
+
+    getPos = readIORef' T.pos
+    modifyPos f = modifyIORefA' T.pos f >> redrawCanvas
+
+    modifyCellPos fCell fX fY = do
+        ask >>= \app -> liftIO $
+            modifyIORef (app ^. T.pos) $ over T.cellWidth  fCell
+                                       . over T.cellHeight fCell
+                                       . over T.leftXCoord fX
+                                       . over T.topYCoord  fY
+        redrawCanvas
+
+    recordNewMousePoint p = do
+        lastPoint <- readIORef' T.lastPoint
+        writeIORef' T.lastPoint $ Just p
+        return $ case lastPoint of
+            Nothing -> NewPoint
+            Just lp ->
+                if lp == p
+                then NoDiff
+                else PointDiff (getDiff lp p)
+      where
+        getDiff (Point lastX lastY) (Point thisX thisY) =
+            Point (thisX-lastX) (thisY-lastY)
+    eraseMousePointRecord = writeIORef' T.lastPoint Nothing
+
+    type MouseEvent App = GtkMouseEvent
+    getMouseEventInfo (GtkMouseEvent ev) = liftIO $ do
+        s <- get ev #state
+        x <- get ev #x
+        y <- get ev #y
+        return (ModifierTypeButton1Mask `elem` s, (x, y))
+
+    type ScrollEvent App = EventScroll
+    getScrollEventInfo ev = liftIO $ do
+        s <- get ev #direction >>= pure . \case
+            GI.Gdk.ScrollDirectionUp -> ScrollDirectionUp
+            GI.Gdk.ScrollDirectionDown -> ScrollDirectionDown
+            _ -> ScrollDirectionOther
+        x <- get ev #x
+        y <- get ev #y
+        return (s, (x, y))
+
+    getPasteSelectionOverlay = readIORef' T.pasteSelectionOverlay
+    setPasteSelectionOverlay o = do
+        writeIORef' T.pasteSelectionOverlay o
+        redrawCanvas
+
+instance Paths App where
     getCurrentRuleName = withApp T.getCurrentRuleName
     getCurrentRulePath = readIORef' T.currentRulePath
     locateRuleByName rule cantFind = withApp $ \app -> do
@@ -539,6 +546,7 @@ instance MonadApp App where
         sheetBuf <- asks (^. T.sheetBuf)
         liftIO $ setTextBufferText sheetBuf $ pack ss
 
+instance RenderCanvas App where
     type RenderContext App = GI.Cairo.Context
     -- from https://github.com/haskell-gi/haskell-gi/blob/36e4c4fb0df9e80d3c9b2f5999b65128e20317fb/examples/advanced/Cairo.hs#L297
     renderWithContext ct r = do

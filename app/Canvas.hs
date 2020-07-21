@@ -21,7 +21,7 @@ import CA.Universe
 import Control.Monad.App.Class
 import qualified Types as T
 
-clearPattern :: MonadApp m => m ()
+clearPattern :: (Canvas m, EvolutionSettings m, GetOps m, SaveRestorePattern m) => m ()
 clearPattern = do
     modifyGen $ const 0
     modifyPos $ const T.Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
@@ -48,7 +48,7 @@ getMousePos (canvasX, canvasY) T.Pos{..} =
         gridPos = Point gridX gridY
     in MouseGridPos{..}
 
-zoom :: MonadApp m => (ScrollDirection, (Double, Double)) -> m Bool
+zoom :: Canvas m => (ScrollDirection, (Double, Double)) -> m Bool
 zoom (scrollDir, evCoords) = do
     MouseGridPos{viewPos = Point viewX viewY} <- getMousePos evCoords <$> getPos
     case scrollDir of
@@ -56,7 +56,7 @@ zoom (scrollDir, evCoords) = do
         ScrollDirectionDown -> modifyCellPos (/2) (subtract viewX)     (subtract viewY)     $> True
         _                   -> return False
 
-canvasMouseHandler :: MonadApp m
+canvasMouseHandler :: (Canvas m, EvolutionSettings m, GetOps m, Modes m)
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
                    -> (Bool, (Double, Double))  -- ^ whether the mouse button was pressed, and (x, y), of mouse event
                    -> m Bool
@@ -126,7 +126,7 @@ mergeAtPoint (Point x y) (Universe new) (Universe old) =
                 Nothing -> a
                 Just val' -> (i, val')
 
-drawCanvas :: MonadApp m => RenderContext m -> m Bool
+drawCanvas :: (Canvas m, GetOps m, RenderCanvas m) => RenderContext m -> m Bool
 drawCanvas ctx = getOps >>= \Ops{..} -> do
     pos <- getPos
     selection <- getSelection

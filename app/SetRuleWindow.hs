@@ -21,32 +21,32 @@ import System.FilePath
 
 import Control.Monad.App.Class
 
-setRuleWindowDeleteHandler :: MonadApp m => m ()
+setRuleWindowDeleteHandler :: (Paths m, Windows m) => m ()
 setRuleWindowDeleteHandler = do
     getCurrentRuleName >>= \case
         Just _ -> pure ()
         Nothing -> showQueryDialog "Do you want to save your changes" (pure ()) saveRuleAs
     setRuleWindowDelete
 
-setRuleBtnHandler :: MonadApp m => m ()
+setRuleBtnHandler :: Paths m => m ()
 setRuleBtnHandler = do
     text <- getRuleText
     setCurrentRule Nothing (unpack text)
 
-saveRule :: MonadApp m => m ()
+saveRule :: (Paths m, Windows m) => m ()
 saveRule = getCurrentRulePath >>= \case
     Nothing    -> saveRuleAs
     Just fName -> writeCurrentRule fName
 
-saveRuleAs :: MonadApp m => m ()
+saveRuleAs :: (Paths m, Windows m) => m ()
 saveRuleAs =
     void $ withRuleFileDialog SaveFile $ \() fName ->
         writeCurrentRule $ fName -<.> "alp"
 
-writeCurrentRule :: MonadApp m => FilePath -> m ()
+writeCurrentRule :: Paths m => FilePath -> m ()
 writeCurrentRule file = getRuleText >>= writeRule file
 
-openRuleHandler :: MonadApp m => m ()
+openRuleHandler :: (Paths m, Windows m) => m ()
 openRuleHandler = void $
     withRuleFileDialog OpenFile $ \ruleText _ ->
         setRuleWindowRule ruleText

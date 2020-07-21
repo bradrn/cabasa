@@ -6,7 +6,15 @@
 {-# LANGUAGE TypeFamilies              #-}
 
 module Control.Monad.App.Class
-    ( MonadApp(..)
+    ( GetOps(..)
+    , Windows(..)
+    , Modes(..)
+    , PlayThread(..)
+    , SaveRestorePattern(..)
+    , EvolutionSettings(..)
+    , Canvas(..)
+    , Paths(..)
+    , RenderCanvas(..)
     , Ops(..)
     , FileChooserAction(..)
     , Optional
@@ -23,66 +31,7 @@ import Graphics.Rendering.Cairo (Render)
 import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y))
 import qualified Types as T
 
-{-|
-
-'MonadApp' is a monad containing all the ‘primitive’ operations
-necessary to implement event handlers in Cabasa. The intention is that
-every event handler should be defined as a 'MonadApp', rather than
-simply implementing them in 'IO'. 'MonadApp' has several advantages
-compared to using 'IO':
-
-    * An application written entirely in 'IO' has no limits on what
-      can be done by as part of a event handler. For instance, any
-      function could read any file or mutate an arbitrary variable.
-      This is generally considered to be a Bad Thing. By using a
-      custom typeclass to encapsulate the available types of
-      ‘primitive’ actions available, limits can be placed on exactly
-      which side-effecting actions can be used. For instance, file
-      reading should be restricted to opening a file selected by the
-      user, so is included within the file-opening functions (such as
-      'withRuleFileDialog'). Unlimited mutation is controlled by not
-      including too many accessor functions to directly access mutable
-      variables.
-
-    * 'MonadApp' allows for more modularity compared to 'IO': the same
-      event handler can be used across multiple backends, and porting
-      to another backend should require only writing a new 'MonadApp'
-      instance and adding another @main@ function. This is
-      particularly useful for testing, or for implementing Cabasa in
-      another GUI framework if necessary.
-
-Since 'MonadApp' contains all the side-effecting actions used in
-Cabasa, it will often be necessary to add new methods to 'MonadApp'
-whenever new functionality is added to Cabasa. For this reason it is
-useful to know what sort of methods 'MonadApp' should contain. There
-is no clear criterion for this, but in general, methods in 'MonadApp'
-should satisfy the following points, roughly in order of priority:
-
-    * They should be __orthogonal__: if a method is in 'MonadApp', it
-      should not be used by any other methods in 'MonadApp'.
-
-    * If two side-effecting actions are consistently used together,
-      they should be __combined__ into a single 'MonadApp' method.
-
-    * They should __not correspond to a single 'IO' action__, since
-      this defeats the purpose of using a separate typeclass rather
-      than using 'IO'
-
-    * They should be __reusable__: rather than adding the whole
-      side-effecting action as a single method, it is preferable
-      to break it up into smaller methods which could be reused in
-      multiple contexts.
-
-    * They should __not contain large amounts of logic__: 'MonadApp'
-      is meant to be a typeclass for side-effecting computations, so
-      logic should be placed in GUI event handlers rather than in
-      'MonadApp'
-
-Note that this is just a rough guide though: just about any
-side-effecting action may be placed in 'MonadApp' if it seems OK and
-will make the code simpler.
--}
-class Monad m => MonadApp m where
+class Monad m => GetOps m where
     -- | In Cabasa, the state type of the cells in the CA is allowed
     -- to be any Haskell type. Thus the 'Universe' is stored under an
     -- existential (here denoted @exists a. Universe a@ for clarity)
@@ -106,6 +55,7 @@ class Monad m => MonadApp m where
     -- automatically bring every operation in @Ops@ into scope.)
     getOps :: m (Ops m)
 
+class Monad m => Windows m where
     -- | Quit the main window
     mainQuit :: m ()
     -- | Delete the ‘set rule’ window
@@ -113,6 +63,55 @@ class Monad m => MonadApp m where
     -- | Delete the ‘edit stylesheet’ window
     stylesheetWindowDelete :: m ()
 
+    -- | Run dialog to select new grid size, and process the new size
+    -- if one is returned.
+    runGridSizeDialog
+        :: (Coord 'X, Coord 'Y)            -- ^ Previous grid size
+        -> (Coord 'X -> Coord 'Y -> m ())  -- ^ Callback to process new grid size
+        -> m ()
+    -- | Display the ‘settings’ dialog
+    showSettingsDialog :: m ()
+
+    -- | Display the ‘set rule’ window
+    showSetRuleWindow :: m ()
+    -- | Display the ‘edit sheet’ window
+    showEditSheetWindow :: m ()
+
+    -- | Display the ‘about’ dialog
+    showAboutDialog :: m ()
+    -- | Display the user manual
+    showUserManual :: m ()
+
+    -- | Show error message with selected text
+    showErrorDialog :: Text -> m ()
+    -- | Show query dialog
+    showQueryDialog
+        :: Text
+        -> m a  -- Callback if ‘no’ was chosen
+    
+        -> m a  -- Callback if ‘yes’ was chosen
+        -> m a
+
+    -- | Run file dialog to select a pattern file.
+    withPatternFileDialog
+        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
+        -> (Optional Text i -> FilePath -> m a)
+                                -- ^ Callback with contents (if opening) and path of selected file
+        -> m (Maybe a)
+    -- | Run file dialog to select a rule file.
+    withRuleFileDialog
+        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
+        -> (Optional Text i -> FilePath -> m a)
+                                -- ^ Callback with contents (if opening) and path of selected file
+        -> m (Maybe a)
+    -- | Run file dialog to select a CSS stylesheet file.
+    withCSSFileDialog
+        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
+        -> (Optional Text i -> FilePath -> m a)
+                                -- ^ Callback with contents (if opening) and path of selected file
+        -> m (Maybe a)
+
+class Monad m => Modes m where
     -- | Get the current interaction mode
     getCurrentMode :: m T.InteractionMode
     -- | Set the current interaction mode
@@ -122,6 +121,7 @@ class Monad m => MonadApp m where
     -- | Get the state currently being used to draw with
     getCurrentDrawingState :: m Int
 
+class Monad m => PlayThread m where
     -- | Toggle the play thread on or off. This thread will repeatedly
     -- perform an action until it is disabled.
     togglePlayThread
@@ -131,6 +131,7 @@ class Monad m => MonadApp m where
     -- | Kill the play thread, whether it is currently on or off.
     forceKillThread :: m ()
 
+class Monad m => SaveRestorePattern m where
     -- | Save the current pattern for future restoration
     saveRestorePattern :: m ()
     -- | Restore the last saved pattern if present
@@ -138,6 +139,7 @@ class Monad m => MonadApp m where
     -- | Clear the last saved pattern
     resetRestorePattern :: m ()
 
+class Monad m => EvolutionSettings m where
     -- | Modify the current generation number
     modifyGen :: (Int -> Int) -> m ()
     -- | Modify the delay between steps (in microseconds)
@@ -145,6 +147,7 @@ class Monad m => MonadApp m where
     -- | Set the text of the coordinates label
     setCoordsLabel :: Text -> m ()
 
+class Monad m => Canvas m where
     -- | Get the current selection. Refer to documentation of
     -- '_selection' in @Types.hs@ for details.
     getSelection :: m (Maybe (CA.Universe.Point, CA.Universe.Point))
@@ -194,54 +197,7 @@ class Monad m => MonadApp m where
     -- | Set the current paste overlay
     setPasteSelectionOverlay :: Maybe (CA.Universe.Point, CA.Universe.Point) -> m ()
     
-    -- | Run dialog to select new grid size, and process the new size
-    -- if one is returned.
-    runGridSizeDialog
-        :: (Coord 'X, Coord 'Y)            -- ^ Previous grid size
-        -> (Coord 'X -> Coord 'Y -> m ())  -- ^ Callback to process new grid size
-        -> m ()
-    -- | Display the ‘settings’ dialog
-    showSettingsDialog :: m ()
-
-    -- | Display the ‘set rule’ window
-    showSetRuleWindow :: m ()
-    -- | Display the ‘edit sheet’ window
-    showEditSheetWindow :: m ()
-
-    -- | Display the ‘about’ dialog
-    showAboutDialog :: m ()
-    -- | Display the user manual
-    showUserManual :: m ()
-
-    -- | Show error message with selected text
-    showErrorDialog :: Text -> m ()
-    -- | Show query dialog
-    showQueryDialog
-        :: Text
-        -> m a  -- Callback if ‘no’ was chosen
-    
-        -> m a  -- Callback if ‘yes’ was chosen
-        -> m a
-
-    -- | Run file dialog to select a pattern file.
-    withPatternFileDialog
-        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
-        -> (Optional Text i -> FilePath -> m a)
-                                -- ^ Callback with contents (if opening) and path of selected file
-        -> m (Maybe a)
-    -- | Run file dialog to select a rule file.
-    withRuleFileDialog
-        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
-        -> (Optional Text i -> FilePath -> m a)
-                                -- ^ Callback with contents (if opening) and path of selected file
-        -> m (Maybe a)
-    -- | Run file dialog to select a CSS stylesheet file.
-    withCSSFileDialog
-        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
-        -> (Optional Text i -> FilePath -> m a)
-                                -- ^ Callback with contents (if opening) and path of selected file
-        -> m (Maybe a)
-
+class Monad m => Paths m where
     -- | Get the name of the current rule
     getCurrentRuleName :: m (Maybe String)
     -- | Get the path of the current rule
@@ -281,6 +237,7 @@ class Monad m => MonadApp m where
     -- | Set the stylesheet window to display the text of a specific stylesheet
     setStylesheetWindowStylesheet :: String -> m ()
 
+class Monad m => RenderCanvas m where
     -- | The type of any context which may be required to render on the canvas.
     -- If no context is required, this will be @()@.
     type RenderContext m :: *

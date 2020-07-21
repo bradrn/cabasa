@@ -21,7 +21,7 @@ import Data.Text (pack, unpack)
 
 import Control.Monad.App.Class
 
-setBtnHandler :: MonadApp m => m ()
+setBtnHandler :: (Paths m, Windows m, GetOps m) => m ()
 setBtnHandler = do
     sty <- getStylesheetText
     case SS.parseStylesheet (unpack sty) of
@@ -35,17 +35,17 @@ setBtnHandler = do
                         (SS.Fill (SS.RGB r g b) : _) -> return (r,g,b)
                         [] -> Nothing
 
-saveSheetHandler :: MonadApp m => m ()
+saveSheetHandler :: (Paths m, Windows m) => m ()
 saveSheetHandler = getCurrentStylesheetPath >>= \case
     Nothing -> saveSheetAsHandler
     Just fName -> writeCurrentSheet fName
 
-saveSheetAsHandler :: MonadApp m => m ()
+saveSheetAsHandler :: (Paths m, Windows m) => m ()
 saveSheetAsHandler = void $ withCSSFileDialog SaveFile $ const writeCurrentSheet
 
-writeCurrentSheet :: MonadApp m => FilePath -> m ()
+writeCurrentSheet :: Paths m => FilePath -> m ()
 writeCurrentSheet file = getStylesheetText >>= writeSheet file
 
-openSheetHandler :: MonadApp m => m ()
+openSheetHandler :: (Paths m, Windows m) => m ()
 openSheetHandler = void $ withCSSFileDialog OpenFile $ \css _ ->
     setStylesheetWindowStylesheet $ unpack css
