@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RecordWildCards  #-}
 
 module ControlButtons where

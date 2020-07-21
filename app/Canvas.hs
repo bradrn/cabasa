@@ -1,10 +1,7 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedLabels  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE TypeFamilies      #-}
 
 module Canvas where
 
@@ -63,7 +60,7 @@ canvasMouseHandler :: (Canvas m, EvolutionSettings m, GetOps m, Modes m)
 canvasMouseHandler fromButtonPress (btnDown, coords) = do
     let isButtonDown = fromButtonPress || btnDown
     pos' <- getPos
-    let MouseGridPos{ viewPos = viewP@(Point viewX viewY)
+    let MouseGridPos{ viewPos = viewP
                     , gridPos = gridP@(Point gridX gridY)
                     } = getMousePos coords pos'
     curMode <- getCurrentMode
@@ -255,7 +252,7 @@ And all the various values relate to this as follows:
     when (_cellWidth > 2) $
         for_ [leftColCoord..rightColCoord] $ \col -> do
             setSourceRGBA 0 0 0 (getOpacity $ col + _leftXCoord)
-            let xCoord = (__ $ col) * _cellWidth
+            let xCoord = (__ col) * _cellWidth
                 yCoordTop    = (__ topRowCoord   ) * _cellHeight
                 yCoordBottom = (__ bottomRowCoord) * _cellHeight
             -- Draw a vertical line at xCoord
@@ -270,8 +267,8 @@ And all the various values relate to this as follows:
 
     -- Clip the second parameter to within the range of the first.
     clipIn :: Ord n => (n,n) -> n -> n
-    clipIn (l,h) n | l > n = l
-                   | n > h = h
+    clipIn (l,i) n | l > n = l
+                   | n > i = i
                    | otherwise = n
 
     drawOverlay overlay (r,g,b) =

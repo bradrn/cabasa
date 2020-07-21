@@ -45,7 +45,7 @@ readSettings win = do
                 win
                 MessageTypeError
                 ButtonsTypeYesNo
-                ("Settings file does not exist.\n\nDo you want to create a settings file with default settings?")
+                "Settings file does not exist.\n\nDo you want to create a settings file with default settings?"
             $ \case
                 ResponseTypeYes
                     -> defaultSettings >>= \def -> writeSettings def $> def
@@ -98,7 +98,7 @@ getSetting :: Traversal' T.Settings a -> T.Application -> IO a
 getSetting s app = getSettingFrom s (app ^. T.settings)
 
 getSetting' :: Lens' T.Settings (Maybe a) -> T.Application -> IO a
-getSetting' s app = getSetting (s . _Just) app
+getSetting' s = getSetting (s . _Just)
 
 getSettingFrom :: Traversal' T.Settings a -> IORef T.Settings -> IO a
 getSettingFrom s ss = do
@@ -110,7 +110,7 @@ getSettingFrom s ss = do
     return $ fromMaybe defField curField
 
 getSettingFrom' :: Lens' T.Settings (Maybe a) -> IORef T.Settings -> IO a
-getSettingFrom' s ss = getSettingFrom (s . _Just) ss
+getSettingFrom' s = getSettingFrom (s . _Just)
 
 changeSetting :: Lens' T.Settings a -> a -> T.Application -> IO ()
-changeSetting s val app = modifyIORef' (app ^. T.settings) $ (s .~ val)
+changeSetting s val app = modifyIORef' (app ^. T.settings) (s .~ val)

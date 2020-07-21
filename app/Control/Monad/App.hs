@@ -3,22 +3,18 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE ViewPatterns               #-}
 
 module Control.Monad.App
     ( App
@@ -341,7 +337,7 @@ instance SaveRestorePattern App where
         p <- readIORef $ app ^. T.pos
         T.modifyState app $ \state ->
             let T.ExistState'{T._currentPattern=(g, _), T._saved=s} = state
-            in state & T.saved .~ Just (fromMaybe (g, p) s)
+            in state & T.saved ?~ fromMaybe (g, p) s
     restorePattern = do
         app <- ask
         liftIO $ T.modifyStateM app $ \state ->
@@ -358,10 +354,10 @@ instance SaveRestorePattern App where
 instance EvolutionSettings App where
     modifyGen f = withApp $ flip modifyGeneration f
     modifyDelay f = do
-        old <- readIORef' T.delay
-        let new = f old
-        writeIORef' T.delay new
-        asks (^. T.delayLbl) >>= \l -> liftIO $ labelSetText l (pack $ show new)
+        d <- readIORef' T.delay
+        let d' = f d
+        writeIORef' T.delay d'
+        asks (^. T.delayLbl) >>= \l -> liftIO $ labelSetText l (pack $ show d')
     setCoordsLabel l = asks (^. T.coordsLbl) >>= flip labelSetText l
 
 instance Canvas App where
@@ -469,7 +465,7 @@ instance Paths App where
                 -- Update the ListStore with the new states
                 let curstatem = app ^. T.curstatem
                     curstate  = app ^. T.curstate
-                (listStoreClear curstatem)
+                listStoreClear curstatem
                 forM_ (F.finites @n) $ \val -> do
                     iter <- listStoreAppend curstatem
                     val' <- toGValue (fromIntegral val :: CInt)
@@ -514,10 +510,11 @@ instance Paths App where
                         -> (Universe (F.Finite n) -> StdGen -> T.ExistState)
                         -> a )
                      -> a
-        mkExistState app (numcols, numrows)
-                     (AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n'))
-                                , initConfig
-                                , stateData }) f =
+        mkExistState app
+                     (numcols, numrows)
+                     AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n'))
+                               , initConfig, stateData }
+                     f =
             f (Proxy @n') (isJust initConfig) $ \newUniv g -> T.ExistState $ T.ExistState'
                 { _defaultSize = (Coord numcols, Coord numrows)
                 , _defaultVal  = const 0
@@ -588,5 +585,8 @@ withFileDialogChoice constr action contn = do
 param :: Enum e => e -> Int32
 param = fromIntegral . fromEnum
 
-enum :: Enum e => Int32 -> e
-enum = toEnum . fromIntegral
+-- commented out as this isn't needed right now --- it's just giving
+-- a 'defined but not used' warning.
+-- uncomment if/when needed in the future
+-- enum :: Enum e => Int32 -> e
+-- enum = toEnum . fromIntegral

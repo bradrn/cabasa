@@ -2,23 +2,19 @@
 {-# LANGUAGE DataKinds                                          #-}
 {-# LANGUAGE FlexibleContexts                                   #-}
 {-# LANGUAGE LambdaCase                                         #-}
-{-# LANGUAGE MultiWayIf                                         #-}
-{-# LANGUAGE NamedFieldPuns                                     #-}
 {-# LANGUAGE OverloadedLabels                                   #-}
 {-# LANGUAGE OverloadedStrings                                  #-}
 {-# LANGUAGE RankNTypes                                         #-}
 {-# LANGUAGE RecordWildCards                                    #-}
 {-# LANGUAGE ScopedTypeVariables                                #-}
-{-# LANGUAGE TupleSections                                      #-}
 {-# LANGUAGE TypeApplications                                   #-}
-{-# LANGUAGE ViewPatterns                                       #-}
 {-# OPTIONS_GHC -Werror=missing-fields -fno-warn-unused-do-bind #-}
 
 module Main (main) where
 
 import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
-import Control.Monad ((>=>), (=<<), replicateM, forM_)
+import Control.Monad ((>=>), replicateM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Int (Int32)
 import Data.IORef
@@ -35,7 +31,7 @@ import GI.Gdk (screenGetDefault)
 import Lens.Micro
 
 import CA.Core (pureRule, peek, CARuleA)
-import CA.Universe (Universe(Universe), Coord(..), fromList, Point, Axis(..), Point(Point))
+import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point))
 import CA.Utils (moore, count)
 import Control.Monad.App (runApp)
 import Paths_cabasa
@@ -64,7 +60,7 @@ main = do
         let _rule :: Applicative t => CARuleA t Point (Finite 2)
             _rule = pureRule $ \p g ->
                 -- mostly copied from the cellular-automata library
-                let surrounds = count (==1) (fmap (`peek` g) $ (moore False) p) in
+                let surrounds = count (==1) ((`peek` g) <$> moore False p) in
                     case peek p g of
                         0 -> if surrounds == 3          then 1 else 0
                         1 -> if surrounds `elem` [2, 3] then 1 else 0

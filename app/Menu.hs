@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedLabels    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -29,7 +28,6 @@ import CA.Core (peek, evolve)
 import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (toList, fromList, size, clipInside, Bounds(..))
 import Control.Monad.App.Class
-import qualified Types as T
 
 copyCanvas :: (Canvas m, GetOps m) => m ()
 copyCanvas = getSelection >>= \case

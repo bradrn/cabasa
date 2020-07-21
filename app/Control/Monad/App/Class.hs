@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE TypeFamilies              #-}
 
@@ -306,14 +305,14 @@ data Ops m = forall a. Ops
 -- 'withCSSFileDialog' to output the file contents only if the file
 -- is being opened.
 data FileChooserAction (includeContents :: Bool) where
-    OpenFile :: FileChooserAction True
-    SaveFile :: FileChooserAction False
+    OpenFile :: FileChooserAction 'True
+    SaveFile :: FileChooserAction 'False
 
 -- | @Optional p i@ returns @p@ if @i@ is true, otherwise returns
 -- @()@.
 type family Optional p i where
-    Optional p True = p
-    Optional p False = ()
+    Optional p 'True = p
+    Optional p 'False = ()
 
 -- | Describes the difference between a previously recorded point
 -- and another point. Used as the output of 'recordNewMousePoint'.
