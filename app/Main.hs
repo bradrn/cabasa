@@ -27,6 +27,7 @@ import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Data.Array (array)
 import Data.Finite (Finite)
 import Data.Text hiding (count)
+import Data.GI.Base.GType (gtypeInt)
 import Data.GI.Gtk.BuildFn
 import GI.Gtk hiding (init, main)
 import qualified GI.Gtk as G

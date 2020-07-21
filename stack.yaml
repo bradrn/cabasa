@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-12.2
+resolver: lts-16.5
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -41,10 +41,12 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
 - git: https://github.com/bradrn/cellular-automata
-  commit: a99116f4ee4fe74ffb32c80e1187185ed5f7d0b3
+  commit: 57b6c7e5d20e45ebc1f639b7523bdcd8feedc695
   subdirs:
   - cellular-automata
   - cellular-automata-alpaca
+- cairo-0.13.8.1
+- gtk2hs-buildtools-0.13.8.0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
