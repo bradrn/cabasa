@@ -49,6 +49,7 @@ import Data.GI.Base.Attributes
 import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
 import Graphics.Rendering.Cairo.Internal (Render(runRender))
 import Lens.Micro hiding (set)
+import Lens.Micro.Mtl
 import System.FilePath ((</>), (-<.>), takeBaseName)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
@@ -70,15 +71,15 @@ runApp = runReaderT . getApp
 
 -- | Read an 'IORef' from 'T.Application' in 'App', using a 'Lens''.
 readIORef' :: Lens' T.Application (IORef a) -> App a
-readIORef' l = asks (^. l) >>= liftIO . readIORef
+readIORef' l = view l >>= liftIO . readIORef
 
 -- | Write to an 'IORef' from 'T.Application' in 'App', using a 'Lens''.
 writeIORef' :: Lens' T.Application (IORef a) -> a -> App ()
-writeIORef' l v = asks (^. l) >>= \r -> liftIO $ writeIORef r v
+writeIORef' l v = view l >>= \r -> liftIO $ writeIORef r v
 
 -- | Modify an 'IORef' from 'T.Application' in 'App', using a 'Lens''.
 modifyIORefA' :: Lens' T.Application (IORef a) -> (a -> a) -> App ()
-modifyIORefA' l f = asks (^. l) >>= \r -> liftIO $ modifyIORef' r f
+modifyIORefA' l f = view l >>= \r -> liftIO $ modifyIORef' r f
 
 -- | Convert an 'IO' computation using 'T.Application' into an 'App'.
 withApp :: (T.Application -> IO a) -> App a
@@ -87,7 +88,7 @@ withApp = App . ReaderT
 -- | Redraw the canvas. Used internally in the implementation of
 -- @instance MonadApp app@.
 redrawCanvas :: App ()
-redrawCanvas = asks (^. T.canvas) >>= liftIO . postGUIASync . widgetQueueDraw
+redrawCanvas = view T.canvas >>= liftIO . postGUIASync . widgetQueueDraw
 
 -- | Set the icon of the ‘play\/pause button’ to ‘play’. Used
 -- internally in the implementation of @instance MonadApp app@.
@@ -121,7 +122,7 @@ instance Settings App where
 
 instance GetOps App where
     getOps = do
-        sRef <- asks (^. T.existState)
+        sRef <- view T.existState
         (T.ExistState (s :: T.ExistState' n)) <- liftIO $ readIORef sRef
         return Ops
             { getPattern = s ^. (T.currentPattern . _1)
@@ -146,15 +147,15 @@ instance GetOps App where
 
 instance Windows App where
     mainQuit = liftIO GI.Gtk.mainQuit
-    setRuleWindowDelete = asks (^. T.setRuleWindow) >>= liftIO . widgetHide
-    stylesheetWindowDelete = asks (^. T.editSheetWindow) >>= liftIO . widgetHide
+    setRuleWindowDelete = view T.setRuleWindow >>= liftIO . widgetHide
+    stylesheetWindowDelete = view T.editSheetWindow >>= liftIO . widgetHide
 
     runGridSizeDialog (cols, rows) callback = do
-        colsAdj <- asks (^. T.newNumColsAdjustment)
-        rowsAdj <- asks (^. T.newNumRowsAdjustment)
+        colsAdj <- view T.newNumColsAdjustment
+        rowsAdj <- view T.newNumRowsAdjustment
         liftIO $ adjustmentSetValue colsAdj $ fromIntegral cols
         liftIO $ adjustmentSetValue rowsAdj $ fromIntegral rows   
-        d <- asks (^. T.newGridSizeDialog)
+        d <- view T.newGridSizeDialog
         dialogRun' d >>= \case
             AnotherResponseType 1 -> do  -- OK button
                 newCols <- floor <$> adjustmentGetValue colsAdj
@@ -177,17 +178,17 @@ instance Windows App where
 
         withApp (\app -> dialogRun (app ^. T.settingsWindow)) >>= \case
             1 -> do  -- OK button
-                _predefinedRulesDir <- asks (^. T.predefRulesDirChooser) >>= fileChooserGetFilename
-                _userRulesDir       <- asks (^. T.userRulesDirChooser) >>= fileChooserGetFilename
+                _predefinedRulesDir <- view T.predefRulesDirChooser >>= fileChooserGetFilename
+                _userRulesDir       <- view T.userRulesDirChooser >>= fileChooserGetFilename
 
                 _gridSize <- fmap Just $
-                    (,) <$> (floor <$> (adjustmentGetValue =<< asks (^. T.numColsAdjustment)))
-                        <*> (floor <$> (adjustmentGetValue =<< asks (^. T.numRowsAdjustment)))
+                    (,) <$> (floor <$> (adjustmentGetValue =<< view T.numColsAdjustment))
+                        <*> (floor <$> (adjustmentGetValue =<< view T.numRowsAdjustment))
 
                 saveSettings (T.Settings {..})
             _ -> pure ()
 
-        asks (^. T.settingsWindow) >>= liftIO . widgetHide
+        view T.settingsWindow >>= liftIO . widgetHide
 
         return ()
 
@@ -222,7 +223,7 @@ instance Windows App where
 #endif
 
     showErrorDialog msg = do
-        w <- asks (^. T.window)
+        w <- view T.window
         liftIO $ showMessageDialog w MessageTypeError ButtonsTypeOk msg $ const $ pure ()
     showQueryDialog msg no yes = withApp $ \app -> do
         showMessageDialog (app ^. T.window) MessageTypeInfo ButtonsTypeYesNo msg
@@ -309,7 +310,7 @@ instance Modes App where
     getCurrentMode = readIORef' T.currentMode
     setMode m = do
         writeIORef' T.currentMode m
-        asks (^. T.drawopts) >>= \w ->
+        view T.drawopts >>= \w ->
             widgetSetSensitive w $ m == T.DrawMode
     setPastePending = modifyIORefA' T.currentMode T.PastePendingMode
     getCurrentDrawingState = ask >>= \app -> liftIO $
@@ -365,8 +366,8 @@ instance EvolutionSettings App where
         d <- readIORef' T.delay
         let d' = f d
         writeIORef' T.delay d'
-        asks (^. T.delayLbl) >>= \l -> liftIO $ labelSetText l (pack $ show d')
-    setCoordsLabel l = asks (^. T.coordsLbl) >>= flip labelSetText l
+        view T.delayLbl >>= \l -> liftIO $ labelSetText l (pack $ show d')
+    setCoordsLabel l = view T.coordsLbl >>= flip labelSetText l
 
 instance Canvas App where
     getSelection = readIORef' T.selection
@@ -447,7 +448,7 @@ instance Paths App where
           where
             listDirectoryWithPath dir = (fmap . fmap) (dir </>) $ listDirectory dir
 
-    getRuleText = asks (^. T.newRuleBuf) >>= \newRuleBuf -> liftIO $ do
+    getRuleText = view T.newRuleBuf >>= \newRuleBuf -> liftIO $ do
         (start, end) <- textBufferGetBounds newRuleBuf
         textBufferGetText newRuleBuf start end True
     writeRule path rule = do
@@ -540,22 +541,22 @@ instance Paths App where
         liftIO $ writeFile path contents
         writeIORef' T.currentPatternPath $ Just path
 
-    getStylesheetText = asks (^. T.sheetBuf) >>= \sheetBuf -> liftIO $ do
+    getStylesheetText = view T.sheetBuf >>= \sheetBuf -> liftIO $ do
         (start, end) <- textBufferGetBounds sheetBuf
         textBufferGetText sheetBuf start end True
     getCurrentStylesheetPath = readIORef' T.currentStylesheetPath
-    writeSheet file contents = asks (^. T.currentStylesheetPath) >>= \path -> liftIO $ do
+    writeSheet file contents = view T.currentStylesheetPath >>= \path -> liftIO $ do
         TIO.writeFile (file -<.> "css") contents
         writeIORef path (Just file)
     setStylesheetWindowStylesheet ss = do
-        sheetBuf <- asks (^. T.sheetBuf)
+        sheetBuf <- view T.sheetBuf
         liftIO $ setTextBufferText sheetBuf $ pack ss
 
 instance RenderCanvas App where
     type RenderContext App = GI.Cairo.Context
     -- from https://github.com/haskell-gi/haskell-gi/blob/36e4c4fb0df9e80d3c9b2f5999b65128e20317fb/examples/advanced/Cairo.hs#L297
     renderWithContext ct r = do
-        canvas <- asks (^. T.canvas)
+        canvas <- view T.canvas
         liftIO $ do
             size <- getCanvasSize canvas
             withManagedPtr ct $ \p -> runReaderT (runRender $ r size) (Cairo (castPtr p))
