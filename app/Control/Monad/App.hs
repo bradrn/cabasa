@@ -85,6 +85,9 @@ modifyIORefA' l f = view l >>= \r -> liftIO $ modifyIORef' r f
 withApp :: (T.Application -> IO a) -> App a
 withApp = App . ReaderT
 
+modifyState' :: (forall n. T.ExistState' n -> T.ExistState' n) -> App ()
+modifyState' f = App $ ReaderT $ \app -> T.modifyState app f
+
 -- | Redraw the canvas. Used internally in the implementation of
 -- @instance MonadApp app@.
 redrawCanvas :: App ()
@@ -93,12 +96,12 @@ redrawCanvas = view T.canvas >>= liftIO . postGUIASync . widgetQueueDraw
 -- | Set the icon of the ‘play\/pause button’ to ‘play’. Used
 -- internally in the implementation of @instance MonadApp app@.
 setPlayBtnIcon :: App ()
-setPlayBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) "gtk-media-play"  $ param IconSizeButton
+setPlayBtnIcon = view T.runIcon >>= \r -> liftIO $ imageSetFromStock r "gtk-media-play" $ param IconSizeButton
 
 -- | Set the icon of the ‘play\/pause button’ to ‘pause’. Used
 -- internally in the implementation of @instance MonadApp app@.
 setPauseBtnIcon :: App ()
-setPauseBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) "gtk-media-pause" $ param IconSizeButton
+setPauseBtnIcon = view T.runIcon >>= \r -> liftIO $ imageSetFromStock r "gtk-media-pause" $ param IconSizeButton
 
 -- | Convenience function to convert a 'FileChooserAction' (with a
 -- phantom type parameter, for use with 'Optional') to the
@@ -115,10 +118,10 @@ data GtkMouseEvent =
     ) => GtkMouseEvent ev
 
 instance Settings App where
-    saveSettings ss = withApp $ \app -> do
-        writeIORef (app ^. T.settings) ss
-        settingsLocation >>= writeSettings ss
-    getSetting s = withApp $ \app -> getSettingFrom s (app ^. T.settings)
+    saveSettings ss = do
+        writeIORef' T.settings ss
+        liftIO $ settingsLocation >>= writeSettings ss
+    getSetting s = view T.settings >>= liftIO . getSettingFrom s
 
 instance GetOps App where
     getOps = do
@@ -165,18 +168,18 @@ instance Windows App where
         widgetHide d
     showSettingsDialog = do
         _ <- getSetting' T.predefinedRulesDir >>= \ss ->
-            withApp $ \app -> fileChooserSetCurrentFolder (app ^. T.predefRulesDirChooser) ss
+            view T.predefRulesDirChooser >>= liftIO . flip fileChooserSetCurrentFolder ss
 
         _ <- getSetting' T.userRulesDir >>= \ss ->
-            withApp $ \app -> fileChooserSetCurrentFolder (app ^. T.userRulesDirChooser) ss
+            view T.userRulesDirChooser >>= liftIO . flip fileChooserSetCurrentFolder ss
 
         _ <- getSetting (T.gridSize . _Just . _1) >>= \ss ->
-            withApp $ \app -> adjustmentSetValue (app ^. T.numColsAdjustment) $ fromIntegral ss
+            view T.numColsAdjustment >>= liftIO . flip adjustmentSetValue (fromIntegral ss)
 
         _ <- getSetting (T.gridSize . _Just . _2) >>= \ss ->
-            withApp $ \app -> adjustmentSetValue (app ^. T.numRowsAdjustment) $ fromIntegral ss
+            view T.numRowsAdjustment >>= liftIO . flip  adjustmentSetValue (fromIntegral ss)
 
-        withApp (\app -> dialogRun (app ^. T.settingsWindow)) >>= \case
+        view T.settingsWindow >>= liftIO . dialogRun >>= \case
             1 -> do  -- OK button
                 _predefinedRulesDir <- view T.predefRulesDirChooser >>= fileChooserGetFilename
                 _userRulesDir       <- view T.userRulesDirChooser >>= fileChooserGetFilename
@@ -195,10 +198,10 @@ instance Windows App where
     showSetRuleWindow = ask >>= \app -> widgetShowAll (app ^. T.setRuleWindow)
     showEditSheetWindow = ask >>= \app -> widgetShowAll (app ^. T.editSheetWindow)
 
-    showAboutDialog = withApp $ \app -> do
+    showAboutDialog = view T.window >>= \w -> liftIO $ do
         a <- aboutDialogNew
         set a
-            [ #transientFor := app ^. T.window
+            [ #transientFor := w
             , #programName  := "Cabasa"
             , #name         := "Cabasa"
             , #version      := "0.1"
@@ -225,9 +228,11 @@ instance Windows App where
     showErrorDialog msg = do
         w <- view T.window
         liftIO $ showMessageDialog w MessageTypeError ButtonsTypeOk msg $ const $ pure ()
-    showQueryDialog msg no yes = withApp $ \app -> do
-        showMessageDialog (app ^. T.window) MessageTypeInfo ButtonsTypeYesNo msg
-            $ flip runApp app . \case { ResponseTypeYes -> yes ; _ -> no }
+    showQueryDialog msg no yes = do
+        win <- view T.window
+        app <- ask
+        liftIO $ showMessageDialog win MessageTypeInfo ButtonsTypeYesNo msg $
+            flip runApp app . \case { ResponseTypeYes -> yes ; _ -> no }
 
     withPatternFileDialog act callback = withApp $ \app -> do
         withFileDialogChoice (getPatternFileChooser app) (toGtkAction act) $ \_ path ->
@@ -342,9 +347,9 @@ instance PlayThread App where
                 setPlayBtnIcon
 
 instance SaveRestorePattern App where
-    saveRestorePattern = withApp $ \app -> do
-        p <- readIORef $ app ^. T.pos
-        T.modifyState app $ \state ->
+    saveRestorePattern = do
+        p <- readIORef' T.pos
+        modifyState' $ \state ->
             let T.ExistState'{T._currentPattern=(g, _), T._saved=s} = state
             in state & T.saved ?~ fromMaybe (g, p) s
     restorePattern = do
@@ -357,8 +362,7 @@ instance SaveRestorePattern App where
                                 & (T.currentPattern . _1) .~ fst prev
                 Nothing -> pure state
         redrawCanvas
-    resetRestorePattern = withApp $ \app ->
-        T.modifyState app $ T.saved .~ Nothing
+    resetRestorePattern = modifyState' $ T.saved .~ Nothing
 
 instance EvolutionSettings App where
     modifyGen f = withApp $ flip modifyGeneration f
