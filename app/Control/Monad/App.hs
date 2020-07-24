@@ -92,12 +92,12 @@ redrawCanvas = asks (^. T.canvas) >>= liftIO . postGUIASync . widgetQueueDraw
 -- | Set the icon of the ‘play\/pause button’ to ‘play’. Used
 -- internally in the implementation of @instance MonadApp app@.
 setPlayBtnIcon :: App ()
-setPlayBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-play")  $ param IconSizeButton
+setPlayBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) "gtk-media-play"  $ param IconSizeButton
 
 -- | Set the icon of the ‘play\/pause button’ to ‘pause’. Used
 -- internally in the implementation of @instance MonadApp app@.
 setPauseBtnIcon :: App ()
-setPauseBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) (pack "gtk-media-pause") $ param IconSizeButton
+setPauseBtnIcon = withApp $ \app -> imageSetFromStock (app ^. T.runIcon) "gtk-media-pause" $ param IconSizeButton
 
 -- | Convenience function to convert a 'FileChooserAction' (with a
 -- phantom type parameter, for use with 'Optional') to the
