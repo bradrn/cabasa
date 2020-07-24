@@ -43,7 +43,7 @@ import qualified GI.Cairo
 import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Gdk (ModifierType(ModifierTypeButton1Mask), EventScroll)
 import qualified GI.Gdk
-import GI.Gtk hiding (FileChooserAction)
+import GI.Gtk hiding (FileChooserAction, Settings)
 import qualified GI.Gtk  -- for FileChooserAction
 import Data.GI.Base.Attributes
 import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
@@ -113,6 +113,11 @@ data GtkMouseEvent =
     , AttrGetC i3 ev "y" Double
     ) => GtkMouseEvent ev
 
+instance Settings App where
+    saveSettings ss = withApp $ \app -> do
+        writeIORef (app ^. T.settings) ss
+        settingsLocation >>= writeSettings ss
+    getSetting s = withApp $ \app -> getSettingFrom s (app ^. T.settings)
 
 instance GetOps App where
     getOps = do
@@ -157,29 +162,32 @@ instance Windows App where
                 callback (Coord newCols) (Coord newRows)
             _ -> pure ()
         widgetHide d
-    showSettingsDialog = withApp $ \app -> do
-        _ <- getSetting' T.predefinedRulesDir app >>=
-          fileChooserSetCurrentFolder (app ^. T.predefRulesDirChooser)
+    showSettingsDialog = do
+        _ <- getSetting' T.predefinedRulesDir >>= \ss ->
+            withApp $ \app -> fileChooserSetCurrentFolder (app ^. T.predefRulesDirChooser) ss
 
-        _ <- getSetting' T.userRulesDir app >>=
-          fileChooserSetCurrentFolder (app ^. T.userRulesDirChooser)
+        _ <- getSetting' T.userRulesDir >>= \ss ->
+            withApp $ \app -> fileChooserSetCurrentFolder (app ^. T.userRulesDirChooser) ss
 
-        _ <- getSetting (T.gridSize . _Just . _1) app >>= (fromIntegral <&> adjustmentSetValue (app ^. T.numColsAdjustment))
-        _ <- getSetting (T.gridSize . _Just . _2) app >>= (fromIntegral <&> adjustmentSetValue (app ^. T.numRowsAdjustment))
+        _ <- getSetting (T.gridSize . _Just . _1) >>= \ss ->
+            withApp $ \app -> adjustmentSetValue (app ^. T.numColsAdjustment) $ fromIntegral ss
 
-        dialogRun (app ^. T.settingsWindow) >>= \case
-           1 -> do  -- OK button
-               _predefinedRulesDir <- fileChooserGetFilename (app ^. T.predefRulesDirChooser)
-               _userRulesDir       <- fileChooserGetFilename (app ^. T.userRulesDirChooser)
+        _ <- getSetting (T.gridSize . _Just . _2) >>= \ss ->
+            withApp $ \app -> adjustmentSetValue (app ^. T.numRowsAdjustment) $ fromIntegral ss
 
-               _gridSize <- fmap Just $
-                   (,) <$> (floor <$> adjustmentGetValue (app ^. T.numColsAdjustment))
-                       <*> (floor <$> adjustmentGetValue (app ^. T.numRowsAdjustment))
+        withApp (\app -> dialogRun (app ^. T.settingsWindow)) >>= \case
+            1 -> do  -- OK button
+                _predefinedRulesDir <- asks (^. T.predefRulesDirChooser) >>= fileChooserGetFilename
+                _userRulesDir       <- asks (^. T.userRulesDirChooser) >>= fileChooserGetFilename
 
-               saveSettings (T.Settings {..}) app
-           _ -> pure ()
+                _gridSize <- fmap Just $
+                    (,) <$> (floor <$> (adjustmentGetValue =<< asks (^. T.numColsAdjustment)))
+                        <*> (floor <$> (adjustmentGetValue =<< asks (^. T.numRowsAdjustment)))
 
-        widgetHide (app ^. T.settingsWindow)
+                saveSettings (T.Settings {..})
+            _ -> pure ()
+
+        asks (^. T.settingsWindow) >>= liftIO . widgetHide
 
         return ()
 
@@ -414,21 +422,21 @@ instance Canvas App where
 instance Paths App where
     getCurrentRuleName = withApp T.getCurrentRuleName
     getCurrentRulePath = readIORef' T.currentRulePath
-    locateRuleByName rule cantFind = withApp $ \app -> do
-        predefDir <- getSetting' T.predefinedRulesDir app
-        userDir   <- getSetting' T.userRulesDir       app
+    locateRuleByName rule cantFind = do
+        predefDir <- getSetting' T.predefinedRulesDir
+        userDir   <- getSetting' T.userRulesDir
 
-        rules <- listDirectories [userDir, predefDir]
+        rules <- liftIO $ listDirectories [userDir, predefDir]
         let rulePathMay = find ((rule==) . takeBaseName) rules
         rulePath <- case rulePathMay of
-            Nothing -> runApp cantFind app >>= \case
+            Nothing -> cantFind >>= \case
                 Nothing -> return Nothing
                 p@(Just _) -> return p
             p@(Just _) -> return p
         case rulePath of
             Nothing -> return Nothing
             Just path -> do
-                contents <- TIO.readFile path
+                contents <- liftIO $ TIO.readFile path
                 return $ Just (path, contents)
       where
         listDirectories :: [FilePath] -> IO [FilePath]
@@ -446,9 +454,9 @@ instance Paths App where
         liftIO $ TIO.writeFile path rule
         writeIORef' T.currentRulePath (Just path)
     setRuleWindowRule ruleText = withApp $ \app -> setTextBufferText (app ^. T.newRuleBuf) ruleText
-    setCurrentRule path text = withApp $ \app -> do
-        gridSize <- getSetting' T.gridSize app
-        case runALPACA text of
+    setCurrentRule path text = do
+        gridSize <- getSetting' T.gridSize
+        withApp $ \app -> case runALPACA text of
             Left err -> showMessageDialog (app ^. T.window)
                                         MessageTypeError
                                         ButtonsTypeOk

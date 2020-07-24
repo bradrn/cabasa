@@ -16,6 +16,7 @@ import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
 import Control.Monad ((>=>), replicateM, forM_)
 import Control.Monad.IO.Class (liftIO)
+import Data.Functor (($>))
 import Data.Int (Int32)
 import Data.IORef
 
@@ -35,7 +36,8 @@ import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point)
 import CA.Utils (moore, count)
 import Control.Monad.App (runApp)
 import Paths_cabasa
-import Settings (getSettingFrom', readSettings)
+import Settings (defaultSettings, SettingsError(..), readSettingsFile, writeSettings, getSettingFrom', settingsLocation)
+import ShowDialog
 import Handlers
 import qualified Types as T
 import qualified Types.Application as T
@@ -209,3 +211,28 @@ buildUI = do
     _newNumRowsAdjustment <- getObject Adjustment "newNumRowsAdjustment"
 
     return T.GuiObjects{..}
+
+readSettings :: Window -> IO T.Settings
+readSettings win = settingsLocation >>= readSettingsFile >>= \case
+    Right ss -> pure ss
+    Left NonexistentFile ->
+        showMessageDialog
+            win
+            MessageTypeError
+            ButtonsTypeYesNo
+            "Settings file does not exist.\n\nDo you want to create a settings file with default settings?"
+        $ \case
+            ResponseTypeYes
+                -> do
+                    def <- defaultSettings
+                    settingsLocation >>= writeSettings def
+                    return def
+            _   -> defaultSettings
+    Left (ParseError err) ->
+        showMessageDialog
+            win
+            MessageTypeError
+            ButtonsTypeOk
+            ("Error when reading settings:\n" <> pack err <> "\nUsing default settings.")
+            (const $ pure ())
+        >> defaultSettings
