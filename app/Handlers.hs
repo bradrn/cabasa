@@ -93,7 +93,7 @@ addMenuHandlers = do
     on T.goFaster #activate $ modifyDelay (when' (>100) (`quot` 10))
     on T.goSlower #activate $ modifyDelay (* 10)
 
-    on T.runSettings #activate $ showSettingsDialog
+    on T.runSettings #activate $ showSettingsDialogAndSave
 
     on T.quit #activate $ mainQuit
 

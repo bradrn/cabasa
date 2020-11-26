@@ -25,19 +25,17 @@ module Control.Monad.App
 import Control.Concurrent (killThread, forkIO, threadDelay)
 import Data.Int (Int32)
 import Data.IORef
-import Data.List (find)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Foreign.C.Types (CInt)
 import Foreign.Ptr (castPtr)
-import GHC.TypeLits (KnownNat, natVal)
+import GHC.TypeLits (natVal)
 
-import CA.ALPACA (AlpacaData(..), runALPACA)
-import CA.Universe (Point(..), Coord(..), CARuleA, Universe)
-import Control.Monad.Random.Strict (newStdGen, Rand, StdGen)
+import CA.Universe (Point(..), Coord(..))
 import Control.Monad.Reader
 import qualified Data.Finite as F
 import Data.Text (pack)
+
 import qualified Data.Text.IO as TIO
 import qualified GI.Cairo
 import Data.GI.Gtk.Threading (postGUIASync)
@@ -50,13 +48,13 @@ import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
 import Graphics.Rendering.Cairo.Internal (Render(runRender))
 import Lens.Micro hiding (set)
 import Lens.Micro.Mtl
-import System.FilePath ((</>), (-<.>), takeBaseName)
+import System.FilePath ((</>), (-<.>))
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
 import Control.Monad.App.Class
 import Settings
-import ShowDialog
+import qualified ShowDialog as SD
 import qualified Types as T
 import qualified Types.Application as T
 import Paths_cabasa
@@ -148,7 +146,25 @@ instance GetOps App where
             , getName = s ^. T.getName
             }
 
+    modifyState f = withApp $ \app -> T.modifyState app f
+    modifyStateM f = withApp $ \app -> T.modifyStateM app $ \x -> runApp (f x) app
+    writeState x = withApp $ \app -> T.writeState app x
+    withState f = withApp $ \app -> T.withState app $ \x -> runApp (f x) app
+
+    updateStatesList ns = ask >>= \app -> liftIO $ do
+        let curstatem = app ^. T.curstatem
+            curstate  = app ^. T.curstate
+        listStoreClear curstatem
+        forM_ ns $ \val -> do
+            iter <- listStoreAppend curstatem
+            val' <- toGValue (fromIntegral val :: CInt)
+            listStoreSet curstatem iter [0] [val']
+        comboBoxSetActive curstate 0
+
 instance Windows App where
+    showMessageDialog mt bt t c =
+        withApp $ \app -> SD.showMessageDialog (app ^. T.window) mt bt t $ \r -> runApp (c r) app
+
     mainQuit = liftIO GI.Gtk.mainQuit
     setRuleWindowDelete = view T.setRuleWindow >>= liftIO . widgetHide
     stylesheetWindowDelete = view T.editSheetWindow >>= liftIO . widgetHide
@@ -159,14 +175,14 @@ instance Windows App where
         liftIO $ adjustmentSetValue colsAdj $ fromIntegral cols
         liftIO $ adjustmentSetValue rowsAdj $ fromIntegral rows   
         d <- view T.newGridSizeDialog
-        dialogRun' d >>= \case
+        SD.dialogRun' d >>= \case
             AnotherResponseType 1 -> do  -- OK button
                 newCols <- floor <$> adjustmentGetValue colsAdj
                 newRows <- floor <$> adjustmentGetValue rowsAdj
                 callback (Coord newCols) (Coord newRows)
             _ -> pure ()
         widgetHide d
-    showSettingsDialog = do
+    showSettingsDialog callback = do
         _ <- getSetting' T.predefinedRulesDir >>= \ss ->
             view T.predefRulesDirChooser >>= liftIO . flip fileChooserSetCurrentFolder ss
 
@@ -188,7 +204,7 @@ instance Windows App where
                     (,) <$> (floor <$> (adjustmentGetValue =<< view T.numColsAdjustment))
                         <*> (floor <$> (adjustmentGetValue =<< view T.numRowsAdjustment))
 
-                saveSettings (T.Settings {..})
+                callback (T.Settings {..})
             _ -> pure ()
 
         view T.settingsWindow >>= liftIO . widgetHide
@@ -221,17 +237,17 @@ instance Windows App where
 #elif defined darwin_HOST_OS
         callCommand $ "open"     ++ location
 #else
-        showMessageDialog (Just window) MessageError ButtonsOk
+        SD.showMessageDialog (Just window) MessageError ButtonsOk
             "ERROR: Could not figure out how to open manual on your system.\nThis is a bug - please report it on the project website" pure
 #endif
 
     showErrorDialog msg = do
         w <- view T.window
-        liftIO $ showMessageDialog w MessageTypeError ButtonsTypeOk msg $ const $ pure ()
+        liftIO $ SD.showMessageDialog w MessageTypeError ButtonsTypeOk msg $ const $ pure ()
     showQueryDialog msg no yes = do
         win <- view T.window
         app <- ask
-        liftIO $ showMessageDialog win MessageTypeInfo ButtonsTypeYesNo msg $
+        liftIO $ SD.showMessageDialog win MessageTypeInfo ButtonsTypeYesNo msg $
             flip runApp app . \case { ResponseTypeYes -> yes ; _ -> no }
 
     withPatternFileDialog act callback = withApp $ \app -> do
@@ -317,7 +333,6 @@ instance Modes App where
         writeIORef' T.currentMode m
         view T.drawopts >>= \w ->
             widgetSetSensitive w $ m == T.DrawMode
-    setPastePending = modifyIORefA' T.currentMode T.PastePendingMode
     getCurrentDrawingState = ask >>= \app -> liftIO $
         comboBoxGetActiveIter (app ^. T.curstate) >>= \case
             (False, _) -> return 0
@@ -343,15 +358,19 @@ instance PlayThread App where
             Nothing -> return ()
             Just t -> do
                 liftIO $ killThread t
-                writeIORef' T.runThread (Just t)
+                writeIORef' T.runThread Nothing
                 setPlayBtnIcon
+    modifyDelay f = do
+        d <- readIORef' T.delay
+        let d' = f d
+        writeIORef' T.delay d'
+        view T.delayLbl >>= \l -> liftIO $ labelSetText l (pack $ show d')
 
 instance SaveRestorePattern App where
     saveRestorePattern = do
         p <- readIORef' T.pos
-        modifyState' $ \state ->
-            let T.ExistState'{T._currentPattern=(g, _), T._saved=s} = state
-            in state & T.saved ?~ fromMaybe (g, p) s
+        modifyState' $ \state@T.ExistState'{T._currentPattern=(g, _), T._saved=s} ->
+            state & T.saved ?~ fromMaybe (g, p) s
     restorePattern = do
         app <- ask
         liftIO $ T.modifyStateM app $ \state ->
@@ -366,11 +385,6 @@ instance SaveRestorePattern App where
 
 instance EvolutionSettings App where
     modifyGen f = withApp $ flip modifyGeneration f
-    modifyDelay f = do
-        d <- readIORef' T.delay
-        let d' = f d
-        writeIORef' T.delay d'
-        view T.delayLbl >>= \l -> liftIO $ labelSetText l (pack $ show d')
     setCoordsLabel l = view T.coordsLbl >>= flip labelSetText l
 
 instance Canvas App where
@@ -380,27 +394,7 @@ instance Canvas App where
     getPos = readIORef' T.pos
     modifyPos f = modifyIORefA' T.pos f >> redrawCanvas
 
-    modifyCellPos fCell fX fY = do
-        ask >>= \app -> liftIO $
-            modifyIORef (app ^. T.pos) $ over T.cellWidth  fCell
-                                       . over T.cellHeight fCell
-                                       . over T.leftXCoord fX
-                                       . over T.topYCoord  fY
-        redrawCanvas
-
-    recordNewMousePoint p = do
-        lastPoint <- readIORef' T.lastPoint
-        writeIORef' T.lastPoint $ Just p
-        return $ case lastPoint of
-            Nothing -> NewPoint
-            Just lp ->
-                if lp == p
-                then NoDiff
-                else PointDiff (getDiff lp p)
-      where
-        getDiff (Point lastX lastY) (Point thisX thisY) =
-            Point (thisX-lastX) (thisY-lastY)
-    eraseMousePointRecord = writeIORef' T.lastPoint Nothing
+    getColors = asks T._colors
 
     type MouseEvent App = GtkMouseEvent
     getMouseEventInfo (GtkMouseEvent ev) = liftIO $ do
@@ -424,33 +418,39 @@ instance Canvas App where
         writeIORef' T.pasteSelectionOverlay o
         redrawCanvas
 
+    forceCanvasRedraw = redrawCanvas
+
+instance MouseTracking App where
+    recordNewMousePoint p = do
+        lastPoint <- readIORef' T.lastPoint
+        writeIORef' T.lastPoint $ Just p
+        return $ case lastPoint of
+            Nothing -> NewPoint
+            Just lp ->
+                if lp == p
+                then NoDiff
+                else PointDiff (getDiff lp p)
+      where
+        getDiff (Point lastX lastY) (Point thisX thisY) =
+            Point (thisX-lastX) (thisY-lastY)
+    eraseMousePointRecord = writeIORef' T.lastPoint Nothing
+
+instance Files App where
+    listDirectories ds = liftIO $
+        filterM doesDirectoryExist ds
+        >>= traverse listDirectoryWithPath
+        >>= (pure . concat)
+        where
+        listDirectoryWithPath dir = (fmap . fmap) (dir </>) $ listDirectory dir
+    readTextFile = liftIO . TIO.readFile
+
 instance Paths App where
     getCurrentRuleName = withApp T.getCurrentRuleName
     getCurrentRulePath = readIORef' T.currentRulePath
-    locateRuleByName rule cantFind = do
-        predefDir <- getSetting' T.predefinedRulesDir
-        userDir   <- getSetting' T.userRulesDir
+    setCurrentRulePath = writeIORef' T.currentRulePath
 
-        rules <- liftIO $ listDirectories [userDir, predefDir]
-        let rulePathMay = find ((rule==) . takeBaseName) rules
-        rulePath <- case rulePathMay of
-            Nothing -> cantFind >>= \case
-                Nothing -> return Nothing
-                p@(Just _) -> return p
-            p@(Just _) -> return p
-        case rulePath of
-            Nothing -> return Nothing
-            Just path -> do
-                contents <- liftIO $ TIO.readFile path
-                return $ Just (path, contents)
-      where
-        listDirectories :: [FilePath] -> IO [FilePath]
-        listDirectories ds =
-            filterM doesDirectoryExist ds
-            >>= traverse listDirectoryWithPath
-            >>= (pure . concat)
-          where
-            listDirectoryWithPath dir = (fmap . fmap) (dir </>) $ listDirectory dir
+    getPredefinedRulesDir = getSetting' T.predefinedRulesDir
+    getUserRulesDir = getSetting' T.userRulesDir
 
     getRuleText = view T.newRuleBuf >>= \newRuleBuf -> liftIO $ do
         (start, end) <- textBufferGetBounds newRuleBuf
@@ -459,85 +459,6 @@ instance Paths App where
         liftIO $ TIO.writeFile path rule
         writeIORef' T.currentRulePath (Just path)
     setRuleWindowRule ruleText = withApp $ \app -> setTextBufferText (app ^. T.newRuleBuf) ruleText
-    setCurrentRule path text = do
-        gridSize <- getSetting' T.gridSize
-        withApp $ \app -> case runALPACA text of
-            Left err -> showMessageDialog (app ^. T.window)
-                                        MessageTypeError
-                                        ButtonsTypeOk
-                                        (pack err)
-                                        (const $ pure ())
-            Right ad -> mkExistState app gridSize ad $ \(Proxy :: Proxy n) pressClear getExistState -> do
-                g <- newStdGen
-                T.withState app $ \old ->
-                    let (oldPtn, _) = old ^. T.currentPattern
-                    in writeIORef (app ^. T.existState) $ getExistState (finiteClamp <$> oldPtn) g
-                modifyGeneration app (const 0)
-                writeIORef (app ^. T.currentRulePath) path
-
-                -- Update the ListStore with the new states
-                let curstatem = app ^. T.curstatem
-                    curstate  = app ^. T.curstate
-                listStoreClear curstatem
-                forM_ (F.finites @n) $ \val -> do
-                    iter <- listStoreAppend curstatem
-                    val' <- toGValue (fromIntegral val :: CInt)
-                    listStoreSet curstatem iter [0] [val']
-                comboBoxSetActive curstate 0
-
-                when pressClear $ menuItemActivate (app ^. T.clearPattern)
-
-                -- Because we're changing the currentPattern, we need to redraw
-                widgetQueueDraw $ app ^. T.canvas
-      where
-        finiteClamp :: forall n m. (KnownNat n, KnownNat m) => F.Finite n -> F.Finite m
-        finiteClamp = F.finite . min (natVal $ Proxy @m) . toInteger
-
-        -- | Create a 'T.ExistState' given an 'AlpacaData'. This
-        -- function has three outputs:
-        --
-        --     1. A 'Proxy' containing the number of states, as a
-        --     type-level number
-        --
-        --     2. A 'Bool', stating if the screen needs to be cleared
-        --     (as it may need to be if e.g. an ALPACA initial
-        --     configuration has been defined and loaded into
-        --     '_defaultPattern').
-        --
-        --     3. A function which, given a new value for the current
-        --     universe and 'StdGen', will construct the new
-        --     'T.ExistState'.
-        --
-        -- The main complication is that the three outputs need to be
-        -- existentially quantified, and GHC doesn’t support returning
-        -- a bare existential from a function, so in this case it is
-        -- simpler to represent the outputs as
-        -- '(forall n. o1 n -> o2 n -> a) -> a' rather than the
-        -- equivalent yet non-existent 'exists n. (o1 n, o2 n)'.
-        mkExistState :: T.Application
-                     -> (Int, Int)
-                     -> AlpacaData StdGen
-                     -> ( forall n. KnownNat n
-                        => Proxy n
-                        -> Bool
-                        -> (Universe (F.Finite n) -> StdGen -> T.ExistState)
-                        -> a )
-                     -> a
-        mkExistState app
-                     (numcols, numrows)
-                     AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n'))
-                               , initConfig, stateData }
-                     f =
-            f (Proxy @n') (isJust initConfig) $ \newUniv g -> T.ExistState $ T.ExistState'
-                { _defaultSize = (Coord numcols, Coord numrows)
-                , _defaultVal  = const 0
-                , _state2color = \s -> (app ^. T.colors) !! fromInteger (F.getFinite s)
-                , _rule = rule
-                , _getName = Just . fst . stateData
-                , _currentPattern = (newUniv, g)
-                , _saved = Nothing
-                , _clipboardContents = Nothing
-                }
 
     getCurrentPatternPath = readIORef' T.currentPatternPath
     setCurrentPatternPath = writeIORef' T.currentPatternPath . Just

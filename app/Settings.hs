@@ -9,8 +9,6 @@ module Settings
        , SettingsError(..)
        , readSettingsFile
        , writeSettings
-       , Settings(..)
-       , getSetting'
        , getSettingFrom
        , getSettingFrom'
        ) where
@@ -53,13 +51,6 @@ writeSettings ss f = do
     createDirectoryIfMissing True =<< configDir
     doesFileExist f >>= \x -> unless x $ writeFile f ""
     encodeFile f ss
-
-class Monad m => Settings m where
-    saveSettings :: T.Settings -> m ()
-    getSetting :: Traversal' T.Settings a -> m a
-
-getSetting' :: Settings m => Lens' T.Settings (Maybe a) -> m a
-getSetting' s = getSetting (s . _Just)
 
 getSettingFrom :: Traversal' T.Settings a -> IORef T.Settings -> IO a
 getSettingFrom s ss = do

@@ -53,7 +53,7 @@ zoom (scrollDir, evCoords) = do
         ScrollDirectionDown -> modifyCellPos (/2) (subtract viewX)     (subtract viewY)     $> True
         _                   -> return False
 
-canvasMouseHandler :: (Canvas m, EvolutionSettings m, GetOps m, Modes m)
+canvasMouseHandler :: (Canvas m, EvolutionSettings m, GetOps m, Modes m, MouseTracking m)
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
                    -> (Bool, (Double, Double))  -- ^ whether the mouse button was pressed, and (x, y), of mouse event
                    -> m Bool

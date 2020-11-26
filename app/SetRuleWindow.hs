@@ -25,7 +25,16 @@ setRuleWindowDeleteHandler = do
         Nothing -> showQueryDialog "Do you want to save your changes" (pure ()) saveRuleAs
     setRuleWindowDelete
 
-setRuleBtnHandler :: Paths m => m ()
+setRuleBtnHandler -- :: Paths m => m ()
+    :: ( Settings m
+       , Canvas m
+       , Windows m
+       , EvolutionSettings m
+       , Paths m
+       , SaveRestorePattern m
+       , GetOps m
+       )
+    => m ()
 setRuleBtnHandler = do
     text <- getRuleText
     setCurrentRule Nothing (unpack text)
