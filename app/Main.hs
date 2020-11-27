@@ -19,6 +19,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Functor (($>))
 import Data.Int (Int32)
 import Data.IORef
+import GHC.TypeLits (KnownNat)
 
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Data.Array (array)
@@ -44,6 +45,22 @@ import qualified Types.Application as T
 
 main :: IO ()
 main = do
+    let _rule :: Applicative t => CARuleA t Point (Finite 2)
+        _rule = pureRule $ \p g ->
+            -- mostly copied from the cellular-automata library
+            let surrounds = count (==1) ((`peek` g) <$> moore False p) in
+                case peek p g of
+                    0 -> if surrounds == 3          then 1 else 0
+                    1 -> if surrounds `elem` [2, 3] then 1 else 0
+                    _ -> error "error in finite - unreachable code reached!"
+        _defaultSize = (0,0) -- this will get overridden by settings anyway
+        _defaultVal  = const 0
+        _state2color st = if st == 1 then (0,0,0) else (1,1,1)
+        _getName = const Nothing
+    launchCabasa T.RuleConfig{..}
+
+launchCabasa :: KnownNat n => T.RuleConfig n -> IO ()
+launchCabasa ruleConfig = do
     G.init Nothing
     builder <- builderNew
     builderAddFromFile builder . pack =<< getDataFileName "cabasa.glade"
@@ -56,27 +73,13 @@ main = do
     guiObjects <- buildWithBuilder buildUI builder
 
     _settings   <- newIORef =<< readSettings (guiObjects ^. T.window)
-    _ruleConfigVal <- do
-        (numcols, numrows) <- getSettingFrom' T.gridSize _settings
-        let _rule :: Applicative t => CARuleA t Point (Finite 2)
-            _rule = pureRule $ \p g ->
-                -- mostly copied from the cellular-automata library
-                let surrounds = count (==1) ((`peek` g) <$> moore False p) in
-                    case peek p g of
-                        0 -> if surrounds == 3          then 1 else 0
-                        1 -> if surrounds `elem` [2, 3] then 1 else 0
-                        _ -> error "error in finite - unreachable code reached!"
-            _defaultSize = (Coord numcols, Coord numrows)
-            _defaultVal  = const 0
-            _state2color st = if st == 1 then (0,0,0) else (1,1,1)
-            _getName = const Nothing
-        return T.RuleConfig{..}
-    _ruleConfig <- newIORef _ruleConfigVal
+    (numcols, numrows) <- getSettingFrom' T.gridSize _settings
+
+    _ruleConfig <- newIORef $ ruleConfig { T._defaultSize = (Coord numcols, Coord numrows) }
+
     s <- getStdGen
-    _currentPattern        <- newIORef
-        ( defaultPattern (T._defaultSize _ruleConfigVal) (T._defaultVal _ruleConfigVal)
-        , s
-        )
+    _currentPattern        <- newIORef (defaultPattern (Coord numcols, Coord numrows) (T._defaultVal ruleConfig), s)
+
     _saved                 <- newIORef Nothing
     _clipboardContents     <- newIORef Nothing
     _currentPatternPath    <- newIORef @(Maybe String) Nothing
