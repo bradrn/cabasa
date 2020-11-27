@@ -20,7 +20,7 @@ import Data.Text (pack, unpack)
 
 import Control.Monad.App.Class
 
-setBtnHandler :: (Paths m, Windows m, GetOps m) => m ()
+setBtnHandler :: (Paths m, Windows m, GetOps a m) => m ()
 setBtnHandler = do
     sty <- getStylesheetText
     case SS.parseStylesheet (unpack sty) of

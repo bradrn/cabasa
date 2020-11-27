@@ -29,7 +29,7 @@ import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Foreign.C.Types (CInt)
 import Foreign.Ptr (castPtr)
-import GHC.TypeLits (natVal)
+import GHC.TypeLits (natVal, KnownNat)
 
 import CA.Universe (Point(..), Coord(..))
 import Control.Monad.Reader
@@ -60,45 +60,42 @@ import qualified Types.Application as T
 import Paths_cabasa
 
 -- | A concrete implementation of the 'MonadApp' interface.
-newtype App a = App { getApp :: ReaderT T.Application IO a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadReader T.Application)
+newtype App n a = App { getApp :: ReaderT (T.Application n) IO a }
+    deriving (Functor, Applicative, Monad, MonadIO, MonadReader (T.Application n))
 
 -- | Given a 'T.Application' state, run an 'App' in 'IO'.
-runApp :: App a -> T.Application -> IO a
+runApp :: App n a -> T.Application n -> IO a
 runApp = runReaderT . getApp
 
 -- | Read an 'IORef' from 'T.Application' in 'App', using a 'Lens''.
-readIORef' :: Lens' T.Application (IORef a) -> App a
+readIORef' :: Lens' (T.Application n) (IORef a) -> App n a
 readIORef' l = view l >>= liftIO . readIORef
 
 -- | Write to an 'IORef' from 'T.Application' in 'App', using a 'Lens''.
-writeIORef' :: Lens' T.Application (IORef a) -> a -> App ()
+writeIORef' :: Lens' (T.Application n) (IORef a) -> a -> App n ()
 writeIORef' l v = view l >>= \r -> liftIO $ writeIORef r v
 
 -- | Modify an 'IORef' from 'T.Application' in 'App', using a 'Lens''.
-modifyIORefA' :: Lens' T.Application (IORef a) -> (a -> a) -> App ()
+modifyIORefA' :: Lens' (T.Application n) (IORef a) -> (a -> a) -> App n ()
 modifyIORefA' l f = view l >>= \r -> liftIO $ modifyIORef' r f
 
 -- | Convert an 'IO' computation using 'T.Application' into an 'App'.
-withApp :: (T.Application -> IO a) -> App a
+withApp :: (T.Application n -> IO a) -> App n a
 withApp = App . ReaderT
-
-modifyState' :: (forall n. T.ExistState' n -> T.ExistState' n) -> App ()
-modifyState' f = App $ ReaderT $ \app -> T.modifyState app f
 
 -- | Redraw the canvas. Used internally in the implementation of
 -- @instance MonadApp app@.
-redrawCanvas :: App ()
+redrawCanvas :: App n ()
 redrawCanvas = view T.canvas >>= liftIO . postGUIASync . widgetQueueDraw
 
 -- | Set the icon of the ‘play\/pause button’ to ‘play’. Used
 -- internally in the implementation of @instance MonadApp app@.
-setPlayBtnIcon :: App ()
+setPlayBtnIcon :: App n ()
 setPlayBtnIcon = view T.runIcon >>= \r -> liftIO $ imageSetFromStock r "gtk-media-play" $ param IconSizeButton
 
 -- | Set the icon of the ‘play\/pause button’ to ‘pause’. Used
 -- internally in the implementation of @instance MonadApp app@.
-setPauseBtnIcon :: App ()
+setPauseBtnIcon :: App n ()
 setPauseBtnIcon = view T.runIcon >>= \r -> liftIO $ imageSetFromStock r "gtk-media-pause" $ param IconSizeButton
 
 -- | Convenience function to convert a 'FileChooserAction' (with a
@@ -115,26 +112,26 @@ data GtkMouseEvent =
     , AttrGetC i3 ev "y" Double
     ) => GtkMouseEvent ev
 
-instance Settings App where
+instance Settings (App n) where
     saveSettings ss = do
         writeIORef' T.settings ss
         liftIO $ settingsLocation >>= writeSettings ss
     getSetting s = view T.settings >>= liftIO . getSettingFrom s
 
-instance GetOps App where
+instance KnownNat n => GetOps (F.Finite n) (App n) where
     getOps = do
         sRef <- view T.existState
-        (T.ExistState (s :: T.ExistState' n)) <- liftIO $ readIORef sRef
+        (s :: T.ExistState n) <- liftIO $ readIORef sRef
         return Ops
             { getPattern = s ^. (T.currentPattern . _1)
             , getRule = s ^. T.rule
             , modifyPattern = \r -> do
                 let (u, g) = s ^. T.currentPattern
-                liftIO $ writeIORef sRef $ T.ExistState $ s & T.currentPattern .~ r u g
+                liftIO $ writeIORef sRef $ s & T.currentPattern .~ r u g
                 redrawCanvas
             , getClipboard = s ^. T.clipboardContents
             , setClipboard = \u ->
-                liftIO $ writeIORef sRef $ T.ExistState $ s & T.clipboardContents .~ u
+                liftIO $ writeIORef sRef $ s & T.clipboardContents .~ u
             , defaultVal = s ^. T.defaultVal
             , defaultPattern = s ^. T.defaultPattern
             , states = F.finites
@@ -142,11 +139,11 @@ instance GetOps App where
             , decodeInt = F.finite . min (natVal $ Proxy @n) . toInteger
             , state2color = s ^. T.state2color
             , setState2Color = \u ->
-                liftIO $ writeIORef sRef $ T.ExistState $ s & T.state2color .~ u
+                liftIO $ writeIORef sRef $ s & T.state2color .~ u
             , getName = s ^. T.getName
             }
 
-instance Windows App where
+instance Windows (App n) where
     showMessageDialog mt bt t c =
         withApp $ \app -> SD.showMessageDialog (app ^. T.window) mt bt t $ \r -> runApp (c r) app
 
@@ -233,7 +230,7 @@ instance Windows App where
                     runApp (callback p path) app
       where
         -- Returns a file chooser preconfigured to save or open pattern files
-        getPatternFileChooser :: T.Application -> GI.Gtk.FileChooserAction -> IO FileChooserNative
+        getPatternFileChooser :: T.Application n -> GI.Gtk.FileChooserAction -> IO FileChooserNative
         getPatternFileChooser app action = do
             fChooser <- fileChooserNativeNew
                 Nothing
@@ -257,7 +254,7 @@ instance Windows App where
                     p <- TIO.readFile path
                     runApp (callback p path) app
       where
-        getCSSFileChooser :: T.Application -> GI.Gtk.FileChooserAction -> IO FileChooserNative
+        getCSSFileChooser :: T.Application n -> GI.Gtk.FileChooserAction -> IO FileChooserNative
         getCSSFileChooser app ac = do
             fChooser <- fileChooserNativeNew
                 Nothing
@@ -272,7 +269,7 @@ instance Windows App where
 
             return fChooser
 
-instance Modes App where
+instance Modes (App n) where
     getCurrentMode = readIORef' T.currentMode
     setMode m = do
         writeIORef' T.currentMode m
@@ -283,7 +280,7 @@ instance Modes App where
             (False, _) -> return 0
             (True, iter) -> treeModelGetValue (app ^. T.curstatem) iter 0 >>= (fmap fromIntegral . fromGValue @Int32)
 
-instance PlayThread App where
+instance PlayThread (App n) where
     togglePlayThread preOnAct onAct =
         readIORef' T.runThread >>= \case
             Just t -> do
@@ -311,28 +308,30 @@ instance PlayThread App where
         writeIORef' T.delay d'
         view T.delayLbl >>= \l -> liftIO $ labelSetText l (pack $ show d')
 
-instance SaveRestorePattern App where
+instance SaveRestorePattern (App n) where
     saveRestorePattern = do
         p <- readIORef' T.pos
-        modifyState' $ \state@T.ExistState'{T._currentPattern=(g, _), T._saved=s} ->
+        modifyIORefA' T.existState $ \state@T.ExistState{T._currentPattern=(g, _), T._saved=s} ->
             state & T.saved ?~ fromMaybe (g, p) s
     restorePattern = do
         app <- ask
-        liftIO $ T.modifyStateM app $ \state ->
-            case state ^. T.saved of
+        liftIO $ do
+            state <- readIORef $ app ^. T.existState
+            state' <- case state ^. T.saved of
                 Just prev -> do
                     writeIORef (app ^. T.pos) $ snd prev
                     return $ state & T.saved .~ Nothing
                                 & (T.currentPattern . _1) .~ fst prev
                 Nothing -> pure state
+            writeIORef (app ^. T.existState) state'
         redrawCanvas
-    resetRestorePattern = modifyState' $ T.saved .~ Nothing
+    resetRestorePattern = modifyIORefA' T.existState $ T.saved .~ Nothing
 
-instance EvolutionSettings App where
+instance EvolutionSettings (App n) where
     modifyGen f = withApp $ flip modifyGeneration f
     setCoordsLabel l = view T.coordsLbl >>= flip labelSetText l
 
-instance Canvas App where
+instance Canvas (App n) where
     getSelection = readIORef' T.selection
     setSelection s = writeIORef' T.selection s >> redrawCanvas
 
@@ -341,14 +340,14 @@ instance Canvas App where
 
     getColors = asks T._colors
 
-    type MouseEvent App = GtkMouseEvent
+    type MouseEvent (App n) = GtkMouseEvent
     getMouseEventInfo (GtkMouseEvent ev) = liftIO $ do
         s <- get ev #state
         x <- get ev #x
         y <- get ev #y
         return (ModifierTypeButton1Mask `elem` s, (x, y))
 
-    type ScrollEvent App = EventScroll
+    type ScrollEvent (App n) = EventScroll
     getScrollEventInfo ev = liftIO $ do
         s <- get ev #direction >>= pure . \case
             GI.Gdk.ScrollDirectionUp -> ScrollDirectionUp
@@ -365,7 +364,7 @@ instance Canvas App where
 
     forceCanvasRedraw = redrawCanvas
 
-instance MouseTracking App where
+instance MouseTracking (App n) where
     recordNewMousePoint p = do
         lastPoint <- readIORef' T.lastPoint
         writeIORef' T.lastPoint $ Just p
@@ -380,7 +379,7 @@ instance MouseTracking App where
             Point (thisX-lastX) (thisY-lastY)
     eraseMousePointRecord = writeIORef' T.lastPoint Nothing
 
-instance Files App where
+instance Files (App n) where
     listDirectories ds = liftIO $
         filterM doesDirectoryExist ds
         >>= traverse listDirectoryWithPath
@@ -389,7 +388,7 @@ instance Files App where
         listDirectoryWithPath dir = (fmap . fmap) (dir </>) $ listDirectory dir
     readTextFile = liftIO . TIO.readFile
 
-instance Paths App where
+instance Paths (App n) where
     getCurrentRuleName = withApp T.getCurrentRuleName
 
     getCurrentPatternPath = readIORef' T.currentPatternPath
@@ -409,8 +408,8 @@ instance Paths App where
         sheetBuf <- view T.sheetBuf
         liftIO $ setTextBufferText sheetBuf $ pack ss
 
-instance RenderCanvas App where
-    type RenderContext App = GI.Cairo.Context
+instance RenderCanvas (App n) where
+    type RenderContext (App n) = GI.Cairo.Context
     -- from https://github.com/haskell-gi/haskell-gi/blob/36e4c4fb0df9e80d3c9b2f5999b65128e20317fb/examples/advanced/Cairo.hs#L297
     renderWithContext ct r = do
         canvas <- view T.canvas
@@ -423,7 +422,7 @@ instance RenderCanvas App where
             h <- fromIntegral <$> widgetGetAllocatedHeight canvas
             return (w, h)
 
-modifyGeneration :: T.Application -> (Int -> Int) -> IO ()
+modifyGeneration :: T.Application n -> (Int -> Int) -> IO ()
 modifyGeneration app f = do
     let generation    = app ^. T.generation
         generationLbl = app ^. T.generationLbl

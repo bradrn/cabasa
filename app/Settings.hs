@@ -62,5 +62,5 @@ getSettingFrom s ss = do
 getSettingFrom' :: Lens' T.Settings (Maybe a) -> IORef T.Settings -> IO a
 getSettingFrom' s = getSettingFrom (s . _Just)
 
-changeSetting :: Lens' T.Settings a -> a -> T.Application -> IO ()
+changeSetting :: Lens' T.Settings a -> a -> T.Application n -> IO ()
 changeSetting s val app = modifyIORef' (app ^. T.settings) (s .~ val)

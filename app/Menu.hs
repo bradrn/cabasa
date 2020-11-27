@@ -29,12 +29,12 @@ import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (toList, fromList, size, clipInside, Bounds(..))
 import Control.Monad.App.Class
 
-copyCanvas :: (Canvas m, GetOps m) => m ()
+copyCanvas :: (Canvas m, GetOps a m) => m ()
 copyCanvas = getSelection >>= \case
     Nothing -> pure ()    -- Can't copy when there's no selection!
     Just ps -> doCopy ps
 
-cutCanvas :: (Canvas m, GetOps m) => m ()
+cutCanvas :: (Canvas m, GetOps a m) => m ()
 cutCanvas = getSelection >>= \case
     Nothing -> pure ()    -- Can't cut when there's no selection!
     Just ps@(Point x1 y1, Point x2 y2) ->
@@ -50,7 +50,7 @@ cutCanvas = getSelection >>= \case
                         then defaultVal p
                         else peek p val
 
-doCopy :: GetOps m
+doCopy :: GetOps a m
        => (Point, Point)  -- ^ Selection
        -> m ()
 doCopy (Point x1 y1, Point x2 y2) = getOps >>= \case
@@ -63,7 +63,7 @@ doCopy (Point x1 y1, Point x2 y2) = getOps >>= \case
                 }
         in setClipboard (Just $ fromList vals)
 
-changeGridSize :: (GetOps m, Windows m) => m ()
+changeGridSize :: (GetOps a m, Windows m) => m ()
 changeGridSize = getOps >>= \case
     Ops{..} ->
         runGridSizeDialog (size getPattern) $ \cols rows ->
@@ -105,15 +105,15 @@ changeGridSize = getOps >>= \case
                            [0..width] <&> \col -> def (Point col row)
                    in u' ++ newRowVals
 
-savePattern :: (GetOps m, Paths m, Windows m) => m ()
+savePattern :: (GetOps a m, Paths m, Windows m) => m ()
 savePattern = getCurrentPatternPath >>= \case
     Nothing   -> savePatternAs
     Just path -> writeCurrentPattern path
 
-savePatternAs :: (GetOps m, Paths m, Windows m) => m ()
+savePatternAs :: (GetOps a m, Paths m, Windows m) => m ()
 savePatternAs = void $ withPatternFileDialog SaveFile $ const writeCurrentPattern
 
-writeCurrentPattern :: (GetOps m, Paths m) => FilePath -> m ()
+writeCurrentPattern :: (GetOps a m, Paths m) => FilePath -> m ()
 writeCurrentPattern fName = getOps >>= \case
     Ops{..} -> do
         ruleName <- getCurrentRuleName
@@ -130,7 +130,7 @@ writeCurrentPattern fName = getOps >>= \case
                           }
         writePattern (fName -<.> "mcl") $ MC.encodeMCell mc
 
-openPattern :: (Canvas m, EvolutionSettings m, Files m, GetOps m, Paths m, SaveRestorePattern m, Settings m, Windows m) => m ()
+openPattern :: (Canvas m, EvolutionSettings m, Files m, GetOps a m, Paths m, SaveRestorePattern m, Settings m, Windows m) => m ()
 openPattern = void $
     withPatternFileDialog OpenFile $ \pat fName -> do
         case MC.decodeMCell (unpack pat) of

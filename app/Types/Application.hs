@@ -27,12 +27,12 @@ import System.FilePath (takeBaseName)
 
 import Types
 
-data Application = Application
+data Application n = Application
     { -- These two fields need to be declared with an 'app' prefix so that e.g.
       -- the generated 'appGuiObjects' lenses don't conflict with the
       -- 'guiObjects' method in the generated 'HasGuiObjects' class
       _appGuiObjects :: GuiObjects
-    , _appIORefs     :: IORefs
+    , _appIORefs     :: IORefs n
 
       -- A list of random colors. There isn't any other good place to put this,
       -- so we'll stick it in here.
@@ -87,7 +87,7 @@ data GuiObjects = GuiObjects
     , _newNumRowsAdjustment  :: Adjustment
     }
 
-data ExistState' n = ExistState'
+data ExistState n = ExistState
     { _rule :: Point -> Universe (Finite n) -> Rand StdGen (Finite n)  -- ^ The rule itself
     , _defaultSize :: (Coord 'X, Coord 'Y)           -- ^ Default (width, height) of grid
     , _defaultVal  :: Point -> Finite n                     -- ^ The default value at each point
@@ -102,11 +102,10 @@ data ExistState' n = ExistState'
     -- use, so we just emulate our own clipboard.
     , _clipboardContents :: Maybe (Universe (Finite n))
     }
-data ExistState = forall n. KnownNat n => ExistState (ExistState' n)
 
-data IORefs = IORefs
+data IORefs n = IORefs
   {
-    _existState            :: IORef ExistState
+    _existState            :: IORef (ExistState n)
   , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _currentStylesheetPath :: IORef (Maybe FilePath)   -- The path of the current pattern
@@ -151,16 +150,16 @@ data IORefs = IORefs
 -- (it does e.g. CAVals' -> cAVals' when we want CAVals' -> caVals')
 flip makeLensesWith ''IORefs  $ classyRules & lensClass .~ const (Just (mkName "HasIORefs" , mkName "ioRefs" ))
 
-getCurrentRuleName :: Application -> IO (Maybe String)
+getCurrentRuleName :: Application n -> IO (Maybe String)
 getCurrentRuleName app = (fmap . fmap) takeBaseName $ readIORef (app ^. currentPatternPath)
 
 makeClassy ''GuiObjects
 
-makeLenses ''ExistState'
+makeLenses ''ExistState
 
 makeLenses ''Application
-instance HasIORefs Application where ioRefs = appIORefs
-instance HasGuiObjects Application where guiObjects = appGuiObjects
+instance HasIORefs (Application n) n where ioRefs = appIORefs
+instance HasGuiObjects (Application n) where guiObjects = appGuiObjects
 
 -- | Get the actual pattern from the info stored in a 'CAVals''
 _defaultPattern :: (Coord 'X, Coord 'Y) -> (Point -> t) -> Universe t
@@ -174,7 +173,7 @@ _defaultPattern s v = Universe $ array (bounds s) (mkPoints s v)
       bounds :: (Coord 'X, Coord 'Y) -> (Point, Point)
       bounds (w,h) = (Point 0 0, Point (w-1) (h-1))
 
-defaultPattern :: SimpleGetter (ExistState' n) (Universe (Finite n))
+defaultPattern :: SimpleGetter (ExistState n) (Universe (Finite n))
 defaultPattern = \out vals ->
     let s = vals ^. defaultSize
         v = vals ^. defaultVal
@@ -182,28 +181,3 @@ defaultPattern = \out vals ->
   where
     retag :: Const x a -> Const x b
     retag (Const x) = Const x
-
--- ExistsState is an existential, so it's hard to use lenses with it; here's
--- some functions to make it easier to work with ExistsState inside Application
-
-modifyState :: Application -> (forall n. ExistState' n -> ExistState' n) -> IO ()
-modifyState app f =
-    modifyIORef' (app ^. existState) $
-        \(ExistState x) -> ExistState (f x)
-
-modifyStateM :: MonadIO m
-             => Application
-             -> (forall n. ExistState' n -> m (ExistState' n)) -> m ()
-modifyStateM app f = do
-    let existState' = app ^. existState
-    (ExistState s') <- liftIO $ readIORef existState'
-    newState <- f s'
-    liftIO $ writeIORef existState' $ ExistState newState
-
-writeState :: KnownNat n => Application -> ExistState' n -> IO ()
-writeState app t = writeIORef (app ^. existState) $ ExistState t
-
-withState :: MonadIO m => Application -> (forall t. KnownNat t => ExistState' t -> m a) -> m a
-withState app f = do
-    (ExistState s') <- liftIO $ readIORef $ app ^. existState
-    f s'

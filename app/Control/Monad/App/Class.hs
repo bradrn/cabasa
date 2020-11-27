@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
@@ -56,29 +58,9 @@ import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y), CARuleA)
 import qualified Types as T
 import qualified Types.Application as T
 
-class Monad m => GetOps m where
-    -- | In Cabasa, the state type of the cells in the CA is allowed
-    -- to be any Haskell type. Thus the 'Universe' is stored under an
-    -- existential (here denoted @exists a. Universe a@ for clarity)
-    -- to state that, although the universe does store a specific cell
-    -- type, there is no way of knowing exactly which type this is.
-    --
-    -- Although this solution works well, it makes it difficult to
-    -- manipulate functions which require the usage of existentials,
-    -- as none of the type variables match up: for instance, if
-    -- @getUniverse :: (exists a. Universe a)@, and
-    -- @encodeInt :: (exists a. a -> Int)@, the two @a@s may well
-    -- refer to different types. For this reason, functions which
-    -- require the use of this existential type variable cannot be
-    -- stored directly in the 'MonadApp' typeclass. Instead, they
-    -- are stored in the 'Ops' record, which contains an existentially
-    -- quantified type variable. @getOps@ is then used to access
-    -- an 'Ops' value and hence call these existential operations.
-    -- Typical usage will be something like
-    -- @getOps >>= \\Ops{..} -> doStuffWithOpsBroughtIntoContext@.
-    -- (Note that this uses the @RecordWildCards@ extention to
-    -- automatically bring every operation in @Ops@ into scope.)
-    getOps :: m (Ops m)
+class Monad m => GetOps a m | m -> a where
+    -- TODO: get rid of this
+    getOps :: m (Ops a m)
 
 class Monad m => Settings m where
     saveSettings :: T.Settings -> m ()
@@ -273,11 +255,8 @@ class Monad m => RenderCanvas m where
              -- ^ What to render. The argument is the (width, height) of the canvas.
         -> m ()
 
--- | Existentially-quantified functions and accessors. These should
--- really be part of 'MonadApp', but since they use existentials, this
--- would make them unusable; see the documentation for 'getOps' for
--- more details.
-data Ops m = forall a. Ops
+-- TODO: get rid of this
+data Ops a m = Ops
     { -- | Get the current 'Universe'.
       getPattern :: Universe a
 

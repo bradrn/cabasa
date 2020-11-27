@@ -77,7 +77,7 @@ main = do
                 )
             _saved = Nothing
             _clipboardContents = Nothing
-        newIORef $ T.ExistState (T.ExistState'{..})
+        newIORef $ T.ExistState{..}
     _currentPatternPath    <- newIORef @(Maybe String) Nothing
     _currentRulePath       <- newIORef @(Maybe String) Nothing
     _currentStylesheetPath <- newIORef @(Maybe String) Nothing
