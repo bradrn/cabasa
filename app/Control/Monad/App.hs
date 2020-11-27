@@ -23,6 +23,7 @@ module Control.Monad.App
     ) where
 
 import Control.Concurrent (killThread, forkIO, threadDelay)
+import Data.Bifunctor (first)
 import Data.Int (Int32)
 import Data.IORef
 import Data.Maybe (fromMaybe)
@@ -124,12 +125,12 @@ instance KnownNat n => GetOps (F.Finite n) (App n) where
         sRef <- view T.ruleConfig
         (s :: T.RuleConfig n) <- liftIO $ readIORef sRef
         clipboard <- liftIO $ readIORef (app ^. T.clipboardContents)
+        currentPattern <- readIORef' T.currentPattern
         return Ops
-            { getPattern = s ^. (T.currentPattern . _1)
+            { getPattern = fst currentPattern
             , getRule = s ^. T.rule
             , modifyPattern = \r -> do
-                let (u, g) = s ^. T.currentPattern
-                liftIO $ writeIORef sRef $ s & T.currentPattern .~ r u g
+                modifyIORefA' T.currentPattern $ uncurry r
                 redrawCanvas
             , getClipboard = clipboard
             , setClipboard = \u ->
@@ -314,7 +315,7 @@ instance SaveRestorePattern (App n) where
     saveRestorePattern = do
         p <- readIORef' T.pos
         s <- readIORef' T.saved
-        (g, _) <- T._currentPattern <$> readIORef' T.ruleConfig
+        (g, _) <- readIORef' T.currentPattern
         writeIORef' T.saved $ Just $ fromMaybe (g, p) s
     restorePattern = do
         app <- ask
@@ -324,7 +325,7 @@ instance SaveRestorePattern (App n) where
                 Just prev -> do
                     writeIORef (app ^. T.pos) $ snd prev
                     writeIORef (app ^. T.saved) Nothing
-                    modifyIORef (app ^. T.ruleConfig) $ (T.currentPattern . _1) .~ fst prev
+                    modifyIORef (app ^. T.currentPattern) $ first $ const $ fst prev
                 Nothing -> pure ()
         redrawCanvas
     resetRestorePattern = writeIORef' T.saved Nothing

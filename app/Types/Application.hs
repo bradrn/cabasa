@@ -93,12 +93,12 @@ data RuleConfig n = RuleConfig
     , _defaultVal  :: Point -> Finite n                     -- ^ The default value at each point
     , _state2color :: Finite n -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
     , _getName :: Finite n -> Maybe String                  -- ^ Given a state, get its optional name as a string. Used with ALPACA stylesheets.
-    , _currentPattern  :: (Universe (Finite n), StdGen)
     }
 
 data IORefs n = IORefs
   {
     _ruleConfig            :: IORef (RuleConfig n)
+  , _currentPattern        :: IORef (Universe (Finite n), StdGen)
   , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _currentStylesheetPath :: IORef (Maybe FilePath)   -- The path of the current pattern
