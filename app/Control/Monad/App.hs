@@ -120,8 +120,10 @@ instance Settings (App n) where
 
 instance KnownNat n => GetOps (F.Finite n) (App n) where
     getOps = do
-        sRef <- view T.existState
-        (s :: T.ExistState n) <- liftIO $ readIORef sRef
+        app <- ask
+        sRef <- view T.ruleConfig
+        (s :: T.RuleConfig n) <- liftIO $ readIORef sRef
+        clipboard <- liftIO $ readIORef (app ^. T.clipboardContents)
         return Ops
             { getPattern = s ^. (T.currentPattern . _1)
             , getRule = s ^. T.rule
@@ -129,9 +131,9 @@ instance KnownNat n => GetOps (F.Finite n) (App n) where
                 let (u, g) = s ^. T.currentPattern
                 liftIO $ writeIORef sRef $ s & T.currentPattern .~ r u g
                 redrawCanvas
-            , getClipboard = s ^. T.clipboardContents
+            , getClipboard = clipboard
             , setClipboard = \u ->
-                liftIO $ writeIORef sRef $ s & T.clipboardContents .~ u
+                liftIO $ writeIORef (app ^. T.clipboardContents) u
             , defaultVal = s ^. T.defaultVal
             , defaultPattern = s ^. T.defaultPattern
             , states = F.finites
@@ -311,21 +313,21 @@ instance PlayThread (App n) where
 instance SaveRestorePattern (App n) where
     saveRestorePattern = do
         p <- readIORef' T.pos
-        modifyIORefA' T.existState $ \state@T.ExistState{T._currentPattern=(g, _), T._saved=s} ->
-            state & T.saved ?~ fromMaybe (g, p) s
+        s <- readIORef' T.saved
+        (g, _) <- T._currentPattern <$> readIORef' T.ruleConfig
+        writeIORef' T.saved $ Just $ fromMaybe (g, p) s
     restorePattern = do
         app <- ask
         liftIO $ do
-            state <- readIORef $ app ^. T.existState
-            state' <- case state ^. T.saved of
+            state <- readIORef $ app ^. T.ruleConfig
+            readIORef (app ^. T.saved) >>= \case
                 Just prev -> do
                     writeIORef (app ^. T.pos) $ snd prev
-                    return $ state & T.saved .~ Nothing
-                                & (T.currentPattern . _1) .~ fst prev
-                Nothing -> pure state
-            writeIORef (app ^. T.existState) state'
+                    writeIORef (app ^. T.saved) Nothing
+                    modifyIORef (app ^. T.ruleConfig) $ (T.currentPattern . _1) .~ fst prev
+                Nothing -> pure ()
         redrawCanvas
-    resetRestorePattern = modifyIORefA' T.existState $ T.saved .~ Nothing
+    resetRestorePattern = writeIORef' T.saved Nothing
 
 instance EvolutionSettings (App n) where
     modifyGen f = withApp $ flip modifyGeneration f

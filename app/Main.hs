@@ -56,7 +56,7 @@ main = do
     guiObjects <- buildWithBuilder buildUI builder
 
     _settings   <- newIORef =<< readSettings (guiObjects ^. T.window)
-    _existState <- do
+    _ruleConfig <- do
         s <- getStdGen
         (numcols, numrows) <- getSettingFrom' T.gridSize _settings
         let _rule :: Applicative t => CARuleA t Point (Finite 2)
@@ -75,9 +75,9 @@ main = do
                 ( defaultPattern _defaultSize _defaultVal
                 , s
                 )
-            _saved = Nothing
-            _clipboardContents = Nothing
-        newIORef $ T.ExistState{..}
+        newIORef $ T.RuleConfig{..}
+    _saved                 <- newIORef Nothing
+    _clipboardContents     <- newIORef Nothing
     _currentPatternPath    <- newIORef @(Maybe String) Nothing
     _currentRulePath       <- newIORef @(Maybe String) Nothing
     _currentStylesheetPath <- newIORef @(Maybe String) Nothing

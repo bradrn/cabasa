@@ -87,25 +87,18 @@ data GuiObjects = GuiObjects
     , _newNumRowsAdjustment  :: Adjustment
     }
 
-data ExistState n = ExistState
+data RuleConfig n = RuleConfig
     { _rule :: Point -> Universe (Finite n) -> Rand StdGen (Finite n)  -- ^ The rule itself
     , _defaultSize :: (Coord 'X, Coord 'Y)           -- ^ Default (width, height) of grid
     , _defaultVal  :: Point -> Finite n                     -- ^ The default value at each point
     , _state2color :: Finite n -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
     , _getName :: Finite n -> Maybe String                  -- ^ Given a state, get its optional name as a string. Used with ALPACA stylesheets.
     , _currentPattern  :: (Universe (Finite n), StdGen)
-    -- The grid which is to be restored when the 'reset' button is pressed.
-    , _saved           :: Maybe (Universe (Finite n), Pos)
-
-    -- The current contents of the clipboard, if any. GTK does provide
-    -- an interface to the OS clipboard, but it's fairly tricky to
-    -- use, so we just emulate our own clipboard.
-    , _clipboardContents :: Maybe (Universe (Finite n))
     }
 
 data IORefs n = IORefs
   {
-    _existState            :: IORef (ExistState n)
+    _ruleConfig            :: IORef (RuleConfig n)
   , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _currentStylesheetPath :: IORef (Maybe FilePath)   -- The path of the current pattern
@@ -143,6 +136,14 @@ data IORefs n = IORefs
 
     -- Settings
   , _settings              :: IORef Settings
+
+  -- The grid which is to be restored when the 'reset' button is pressed.
+  , _saved                 :: IORef (Maybe (Universe (Finite n), Pos))
+
+  -- The current contents of the clipboard, if any. GTK does provide
+  -- an interface to the OS clipboard, but it's fairly tricky to
+  -- use, so we just emulate our own clipboard.
+  , _clipboardContents     :: IORef (Maybe (Universe (Finite n)))
   }
 
 -- Basically this is just makeClassy, but we're changing the name of the
@@ -155,7 +156,7 @@ getCurrentRuleName app = (fmap . fmap) takeBaseName $ readIORef (app ^. currentP
 
 makeClassy ''GuiObjects
 
-makeLenses ''ExistState
+makeLenses ''RuleConfig
 
 makeLenses ''Application
 instance HasIORefs (Application n) n where ioRefs = appIORefs
@@ -173,7 +174,7 @@ _defaultPattern s v = Universe $ array (bounds s) (mkPoints s v)
       bounds :: (Coord 'X, Coord 'Y) -> (Point, Point)
       bounds (w,h) = (Point 0 0, Point (w-1) (h-1))
 
-defaultPattern :: SimpleGetter (ExistState n) (Universe (Finite n))
+defaultPattern :: SimpleGetter (RuleConfig n) (Universe (Finite n))
 defaultPattern = \out vals ->
     let s = vals ^. defaultSize
         v = vals ^. defaultVal
