@@ -30,12 +30,3 @@ data Pos = Pos { _leftXCoord :: Coord 'X
                }
 
 makeLenses ''Pos
-
-data Settings = Settings
-  {
-    -- Default grid size (rows, columns)
-    _gridSize :: Maybe (Int, Int)
-  } deriving (Generic, Show)
-
-makeLenses ''Settings
-deriveJSON defaultOptions{fieldLabelModifier = drop 1} ''Settings

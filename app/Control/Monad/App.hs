@@ -54,7 +54,6 @@ import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
 import Control.Monad.App.Class
-import Settings
 import qualified ShowDialog as SD
 import qualified Types as T
 import qualified Types.Application as T
@@ -113,12 +112,6 @@ data GtkMouseEvent =
     , AttrGetC i3 ev "y" Double
     ) => GtkMouseEvent ev
 
-instance Settings (App n) where
-    saveSettings ss = do
-        writeIORef' T.settings ss
-        liftIO $ settingsLocation >>= writeSettings ss
-    getSetting s = view T.settings >>= liftIO . getSettingFrom s
-
 instance KnownNat n => GetOps (F.Finite n) (App n) where
     getOps = do
         app <- ask
@@ -166,25 +159,6 @@ instance Windows (App n) where
                 callback (Coord newCols) (Coord newRows)
             _ -> pure ()
         widgetHide d
-    showSettingsDialog callback = do
-        _ <- getSetting (T.gridSize . _Just . _1) >>= \ss ->
-            view T.numColsAdjustment >>= liftIO . flip adjustmentSetValue (fromIntegral ss)
-
-        _ <- getSetting (T.gridSize . _Just . _2) >>= \ss ->
-            view T.numRowsAdjustment >>= liftIO . flip  adjustmentSetValue (fromIntegral ss)
-
-        view T.settingsWindow >>= liftIO . dialogRun >>= \case
-            1 -> do  -- OK button
-                _gridSize <- fmap Just $
-                    (,) <$> (floor <$> (adjustmentGetValue =<< view T.numColsAdjustment))
-                        <*> (floor <$> (adjustmentGetValue =<< view T.numRowsAdjustment))
-
-                callback (T.Settings {..})
-            _ -> pure ()
-
-        view T.settingsWindow >>= liftIO . widgetHide
-
-        return ()
 
     showEditSheetWindow = ask >>= \app -> widgetShowAll (app ^. T.editSheetWindow)
 

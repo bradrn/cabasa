@@ -130,7 +130,7 @@ writeCurrentPattern fName = getOps >>= \case
                           }
         writePattern (fName -<.> "mcl") $ MC.encodeMCell mc
 
-openPattern :: (Canvas m, EvolutionSettings m, Files m, GetOps a m, Paths m, SaveRestorePattern m, Settings m, Windows m) => m ()
+openPattern :: (Canvas m, EvolutionSettings m, Files m, GetOps a m, Paths m, SaveRestorePattern m, Windows m) => m ()
 openPattern = void $
     withPatternFileDialog OpenFile $ \pat fName -> do
         case MC.decodeMCell (unpack pat) of

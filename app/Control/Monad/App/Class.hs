@@ -14,10 +14,7 @@
 
 module Control.Monad.App.Class
     ( GetOps(..)
-    , Settings(..)
-    , getSetting'
     , Windows(..)
-    , showSettingsDialogAndSave
     , Modes(..)
     , setPastePending
     , PlayThread(..)
@@ -62,13 +59,6 @@ class Monad m => GetOps a m | m -> a where
     -- TODO: get rid of this
     getOps :: m (Ops a m)
 
-class Monad m => Settings m where
-    saveSettings :: T.Settings -> m ()
-    getSetting :: Traversal' T.Settings a -> m a
-
-getSetting' :: Settings m => Lens' T.Settings (Maybe a) -> m a
-getSetting' s = getSetting (s . _Just)
-
 class Monad m => Windows m where
     showMessageDialog :: MessageType -> ButtonsType -> Text -> (ResponseType -> m a) -> m a
 
@@ -83,9 +73,6 @@ class Monad m => Windows m where
         :: (Coord 'X, Coord 'Y)            -- ^ Previous grid size
         -> (Coord 'X -> Coord 'Y -> m ())  -- ^ Callback to process new grid size
         -> m ()
-    -- | Display the ‘settings’ dialog, with a callback to process the
-    -- user’s newly chosen settings
-    showSettingsDialog :: (T.Settings -> m ()) -> m ()
 
     -- | Display the ‘edit sheet’ window
     showEditSheetWindow :: m ()
@@ -117,9 +104,6 @@ class Monad m => Windows m where
         -> (Optional Text i -> FilePath -> m a)
                                 -- ^ Callback with contents (if opening) and path of selected file
         -> m (Maybe a)
-
-showSettingsDialogAndSave :: (Settings m, Windows m) => m ()
-showSettingsDialogAndSave = showSettingsDialog saveSettings
 
 class Monad m => Modes m where
     -- | Get the current interaction mode

@@ -94,8 +94,6 @@ addMenuHandlers = do
     on T.goFaster #activate $ modifyDelay (when' (>100) (`quot` 10))
     on T.goSlower #activate $ modifyDelay (* 10)
 
-    on T.runSettings #activate $ showSettingsDialogAndSave
-
     on T.quit #activate $ mainQuit
 
 addCanvasHandlers :: (KnownNat n, AddHandler n m) => m ()

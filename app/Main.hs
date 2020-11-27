@@ -37,7 +37,6 @@ import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point)
 import CA.Utils (moore, count)
 import Control.Monad.App (runApp)
 import Paths_cabasa
-import Settings (defaultSettings, SettingsError(..), readSettingsFile, writeSettings, getSettingFrom', settingsLocation)
 import ShowDialog
 import Handlers
 import qualified Types as T
@@ -53,7 +52,7 @@ main = do
                     0 -> if surrounds == 3          then 1 else 0
                     1 -> if surrounds `elem` [2, 3] then 1 else 0
                     _ -> error "error in finite - unreachable code reached!"
-        _defaultSize = (0,0) -- this will get overridden by settings anyway
+        _defaultSize = (100, 100)
         _defaultVal  = const 0
         _state2color st = if st == 1 then (0,0,0) else (1,1,1)
         _getName = const Nothing
@@ -72,13 +71,10 @@ launchCabasa ruleConfig = do
 
     guiObjects <- buildWithBuilder buildUI builder
 
-    _settings   <- newIORef =<< readSettings (guiObjects ^. T.window)
-    (numcols, numrows) <- getSettingFrom' T.gridSize _settings
-
-    _ruleConfig <- newIORef $ ruleConfig { T._defaultSize = (Coord numcols, Coord numrows) }
+    _ruleConfig <- newIORef ruleConfig
 
     s <- getStdGen
-    _currentPattern        <- newIORef (defaultPattern (Coord numcols, Coord numrows) (T._defaultVal ruleConfig), s)
+    _currentPattern        <- newIORef (defaultPattern (T._defaultSize ruleConfig) (T._defaultVal ruleConfig), s)
 
     _saved                 <- newIORef Nothing
     _clipboardContents     <- newIORef Nothing
@@ -203,28 +199,3 @@ buildUI = do
     _newNumRowsAdjustment <- getObject Adjustment "newNumRowsAdjustment"
 
     return T.GuiObjects{..}
-
-readSettings :: Window -> IO T.Settings
-readSettings win = settingsLocation >>= readSettingsFile >>= \case
-    Right ss -> pure ss
-    Left NonexistentFile ->
-        showMessageDialog
-            win
-            MessageTypeError
-            ButtonsTypeYesNo
-            "Settings file does not exist.\n\nDo you want to create a settings file with default settings?"
-        $ \case
-            ResponseTypeYes
-                -> do
-                    def <- defaultSettings
-                    settingsLocation >>= writeSettings def
-                    return def
-            _   -> defaultSettings
-    Left (ParseError err) ->
-        showMessageDialog
-            win
-            MessageTypeError
-            ButtonsTypeOk
-            ("Error when reading settings:\n" <> pack err <> "\nUsing default settings.")
-            (const $ pure ())
-        >> defaultSettings

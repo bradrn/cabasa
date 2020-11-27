@@ -44,7 +44,6 @@ data GuiObjects = GuiObjects
     , _savePattern           :: MenuItem
     , _savePatternAs         :: MenuItem
     , _openPattern           :: MenuItem
-    , _runSettings           :: MenuItem
     , _quit                  :: MenuItem
     , _cutCanvas             :: MenuItem
     , _copyCanvas            :: MenuItem
@@ -77,9 +76,6 @@ data GuiObjects = GuiObjects
     , _saveSheetAs           :: MenuItem
     , _sheetBuf              :: TextBuffer
     , _editSheetWindowSetBtn :: Button
-    , _settingsWindow        :: Dialog
-    , _settingsCancelBtn     :: Button
-    , _settingsOkBtn         :: Button
     , _numColsAdjustment     :: Adjustment
     , _numRowsAdjustment     :: Adjustment
     , _newGridSizeDialog     :: Dialog
@@ -133,9 +129,6 @@ data IORefs n = IORefs
     -- clipboard contents must be placed. This controls where this overlay is
     -- drawn. See '_selection' for more details.
   , _pasteSelectionOverlay :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
-
-    -- Settings
-  , _settings              :: IORef Settings
 
   -- The grid which is to be restored when the 'reset' button is pressed.
   , _saved                 :: IORef (Maybe (Universe (Finite n), Pos))
