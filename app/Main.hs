@@ -140,7 +140,6 @@ buildUI = do
     _copyCanvas    <- getObject MenuItem "copyCanvas"
     _pasteToCanvas <- getObject MenuItem "pasteToCanvas"
     _changeGridSize <- getObject MenuItem "changeGridSize"
-    _setRule       <- getObject MenuItem "setRule"
     _goFaster      <- getObject MenuItem "goFaster"
     _goSlower      <- getObject MenuItem "goSlower"
     _clearPattern  <- getObject MenuItem "clearPattern"
@@ -176,15 +175,6 @@ buildUI = do
         cellLayoutClearAttributes _curstate curstateRenderer
         cellLayoutAddAttribute _curstate curstateRenderer "text" 0
 
-    ------- Set new rule dialog -------
-
-    _setRuleWindow <- getObject Window        "setRuleWindow"
-    _setRuleBtn    <- getObject Button        "setRuleBtn"
-    _newRuleBuf    <- getObject TextView      "newRuleView" >>= textViewGetBuffer
-    _saveRule      <- getObject MenuItem      "saveRule"
-    _saveRuleAs    <- getObject MenuItem      "saveRuleAs"
-    _openRule      <- getObject MenuItem      "openRule"
-
     ------- ALPACA Stylesheets dialog -------
 
     _editSheetWindow       <- getObject Window   "editSheetWindow"
@@ -200,8 +190,6 @@ buildUI = do
     _settingsWindow        <- getObject Dialog            "settingsWindow"
     _settingsCancelBtn     <- getObject Button            "settingsCancelBtn"
     _settingsOkBtn         <- getObject Button            "settingsOkBtn"
-    _predefRulesDirChooser <- getObject FileChooserButton "predefRulesDirChooser"
-    _userRulesDirChooser   <- getObject FileChooserButton "userRulesDirChooser"
     _numColsAdjustment     <- getObject Adjustment        "numColsAdjustment"
     _numRowsAdjustment     <- getObject Adjustment        "numRowsAdjustment"
 

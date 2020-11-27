@@ -22,7 +22,6 @@ import Control.Monad.App.Class
 import qualified Menu
 import qualified Canvas
 import qualified ControlButtons
-import qualified SetRuleWindow
 import qualified StylesheetWindow
 
 -- | A monad which allows adding event handlers to widgets. A
@@ -63,7 +62,6 @@ addHandlers = do
     addMenuHandlers
     addCanvasHandlers
     addControlButtonsHandlers
-    addSetRuleWindowHandlers
     addStylesheetWindowHandlers
  
 addMenuHandlers :: AddHandler m => m ()
@@ -85,7 +83,6 @@ addMenuHandlers = do
 
     on T.changeGridSize #activate $ Menu.changeGridSize
 
-    on T.setRule   #activate $ showSetRuleWindow
     on T.editSheet #activate $ showEditSheetWindow
 
     let when' p f = \x -> if p x then f x else x
@@ -126,14 +123,6 @@ addControlButtonsHandlers = do
     on T.step  #clicked $ (saveRestorePattern >> ControlButtons.runGen)
     on T.run   #clicked $ ControlButtons.runButtonHandler
     on T.reset #clicked $ ControlButtons.resetButtonHandler
-
-addSetRuleWindowHandlers :: AddHandler m => m ()
-addSetRuleWindowHandlers = do
-    on2 T.setRuleWindow #deleteEvent $ \_ -> SetRuleWindow.setRuleWindowDeleteHandler $> True
-    on T.setRuleBtn    #clicked  $ SetRuleWindow.setRuleBtnHandler
-    on T.saveRule      #activate $ SetRuleWindow.saveRule
-    on T.saveRuleAs    #activate $ SetRuleWindow.saveRuleAs
-    on T.openRule      #activate $ SetRuleWindow.openRuleHandler
 
 addStylesheetWindowHandlers :: AddHandler m => m ()
 addStylesheetWindowHandlers = do

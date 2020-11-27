@@ -50,7 +50,6 @@ data GuiObjects = GuiObjects
     , _copyCanvas            :: MenuItem
     , _pasteToCanvas         :: MenuItem
     , _changeGridSize        :: MenuItem
-    , _setRule               :: MenuItem
     , _goFaster              :: MenuItem
     , _goSlower              :: MenuItem
     , _clearPattern          :: MenuItem
@@ -72,12 +71,6 @@ data GuiObjects = GuiObjects
     , _drawopts              :: Box
     , _curstate              :: ComboBox
     , _curstatem             :: ListStore
-    , _setRuleWindow         :: Window
-    , _setRuleBtn            :: Button
-    , _newRuleBuf            :: TextBuffer
-    , _saveRule              :: MenuItem
-    , _saveRuleAs            :: MenuItem
-    , _openRule              :: MenuItem
     , _editSheetWindow       :: Window
     , _openSheet             :: MenuItem
     , _saveSheet             :: MenuItem
@@ -87,8 +80,6 @@ data GuiObjects = GuiObjects
     , _settingsWindow        :: Dialog
     , _settingsCancelBtn     :: Button
     , _settingsOkBtn         :: Button
-    , _predefRulesDirChooser :: FileChooserButton
-    , _userRulesDirChooser   :: FileChooserButton
     , _numColsAdjustment     :: Adjustment
     , _numRowsAdjustment     :: Adjustment
     , _newGridSizeDialog     :: Dialog

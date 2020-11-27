@@ -138,21 +138,15 @@ openPattern = void $
             Right MC.MCell{MC.rule=rule, MC.universe=universe} -> do
                 curRuleName <- getCurrentRuleName
                 whenMaybeM rule $ \rule' ->
-                    when (maybe True (rule'==) curRuleName) $ do
-                        showQueryDialog 
-                            "This pattern is set to use a different rule to the rule currently loaded\nDo you want to change the rule to that specified in the pattern?"
+                    case curRuleName of
+                        Just r | rule' /= r -> do
+                            getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const $ decodeInt <$> universe
+                            setCurrentPatternPath fName
+                        _ -> showQueryDialog
+                            "This pattern is set to use a different rule to the rule currently loaded\nAre you sure you want to open it?"
                             (return ()) $ do
-                                rulePath <- locateRuleByName rule' $
-                                    showQueryDialog
-                                        ("Could not find the specified rule '" <> pack rule' <> "'.\nDo you want to find this rule manually?")
-                                        (return Nothing) $
-                                        withRuleFileDialog OpenFile $ const pure
-                                case rulePath of
-                                    Nothing -> pure ()
-                                    Just (file, contents) -> do
-                                        setCurrentRule (Just file) (unpack contents)
-                getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const $ decodeInt <$> universe
-                setCurrentPatternPath fName
+                                getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const $ decodeInt <$> universe
+                                setCurrentPatternPath fName
   where
     whenMaybeM :: Applicative m => Maybe a -> (a -> m ()) -> m ()
     whenMaybeM (Just a) am = am a

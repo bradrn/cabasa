@@ -25,9 +25,7 @@ module Control.Monad.App.Class
     , modifyCellPos
     , MouseTracking(..)
     , Files(..)
-    , setCurrentRule
     , Paths(..)
-    , locateRuleByName
     , RenderCanvas(..)
     , Ops(..)
     , FileChooserAction(..)
@@ -82,23 +80,6 @@ class Monad m => GetOps m where
     -- automatically bring every operation in @Ops@ into scope.)
     getOps :: m (Ops m)
 
-    -- I see no particularly good reason why such powerful functions
-    -- should be included in this class. Unfortunately, the
-    -- 'setCurrentRule' function seems to need them. Hopefully they
-    -- can be removed at some point.
-    modifyState :: (forall n. T.ExistState' n -> T.ExistState' n) -> m ()
-    modifyStateM :: (forall n. T.ExistState' n -> m (T.ExistState' n)) -> m ()
-    writeState :: KnownNat n => T.ExistState' n -> m ()
-    withState :: (forall t. KnownNat t => T.ExistState' t -> m a) -> m a
-
-
-    -- Another sadly needful function; this one should really be part
-    -- of 'writeState' or similar, but I can’t see any obvious way to
-    -- do it.
-
-    -- | Update the list of available states with the given list.
-    updateStatesList :: Integral n => [n] -> m ()
-
 class Monad m => Settings m where
     saveSettings :: T.Settings -> m ()
     getSetting :: Traversal' T.Settings a -> m a
@@ -111,8 +92,6 @@ class Monad m => Windows m where
 
     -- | Quit the main window
     mainQuit :: m ()
-    -- | Delete the ‘set rule’ window
-    setRuleWindowDelete :: m ()
     -- | Delete the ‘edit stylesheet’ window
     stylesheetWindowDelete :: m ()
 
@@ -126,8 +105,6 @@ class Monad m => Windows m where
     -- user’s newly chosen settings
     showSettingsDialog :: (T.Settings -> m ()) -> m ()
 
-    -- | Display the ‘set rule’ window
-    showSetRuleWindow :: m ()
     -- | Display the ‘edit sheet’ window
     showEditSheetWindow :: m ()
 
@@ -148,12 +125,6 @@ class Monad m => Windows m where
 
     -- | Run file dialog to select a pattern file.
     withPatternFileDialog
-        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
-        -> (Optional Text i -> FilePath -> m a)
-                                -- ^ Callback with contents (if opening) and path of selected file
-        -> m (Maybe a)
-    -- | Run file dialog to select a rule file.
-    withRuleFileDialog
         :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
         -> (Optional Text i -> FilePath -> m a)
                                 -- ^ Callback with contents (if opening) and path of selected file
@@ -269,112 +240,9 @@ class Monad m => Files m where
     listDirectories :: [FilePath] -> m [FilePath]
     readTextFile :: FilePath -> m Text
 
--- | Set the current rule
-setCurrentRule
-    :: ( Settings m
-       , Canvas m
-       , Windows m
-       , EvolutionSettings m
-       , Paths m
-       , SaveRestorePattern m
-       , GetOps m
-       )
-    => Maybe FilePath  -- ^ Path to rule, if there is one
-    -> String          -- ^ Text of rule
-    -> m ()
-setCurrentRule path text = do
-    gridSize <- getSetting' T.gridSize
-    cs <- getColors
-    case runALPACA text of
-        Left err -> showMessageDialog MessageTypeError ButtonsTypeOk (pack err) (const $ pure ())
-        Right ad -> mkExistState cs gridSize ad $ \(Proxy :: Proxy n) pressClear getExistState -> do
-            withState $ \old ->
-                let (oldPtn, g) = old ^. T.currentPattern
-                in case getExistState (finiteClamp <$> oldPtn) g of
-                    (T.ExistState x) -> writeState x
-            modifyGen (const 0)
-            setCurrentRulePath path
-
-            when pressClear $ do
-                resetRestorePattern
-                getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const defaultPattern
-
-            
-            -- -- Update the ListStore with the new states
-            updateStatesList (F.finites @n)
-            
-            -- Because we're changing the currentPattern, we need to redraw
-            forceCanvasRedraw
-
-  where
-    finiteClamp :: forall n m. (KnownNat n, KnownNat m) => F.Finite n -> F.Finite m
-    finiteClamp = F.finite . min (natVal $ Proxy @m) . toInteger
-
-    -- | Create a 'T.ExistState' given an 'AlpacaData'. This
-    -- function has three outputs:
-    --
-    --     1. A 'Proxy' containing the number of states, as a
-    --     type-level number
-    --
-    --     2. A 'Bool', stating if the screen needs to be cleared
-    --     (as it may need to be if e.g. an ALPACA initial
-    --     configuration has been defined and loaded into
-    --     '_defaultPattern').
-    --
-    --     3. A function which, given a new value for the current
-    --     universe and 'StdGen', will construct the new
-    --     'T.ExistState'.
-    --
-    -- The main complication is that the three outputs need to be
-    -- existentially quantified, and GHC doesn’t support returning
-    -- a bare existential from a function, so in this case it is
-    -- simpler to represent the outputs as
-    -- '(forall n. o1 n -> o2 n -> a) -> a' rather than the
-    -- equivalent yet non-existent 'exists n. (o1 n, o2 n)'.
-    mkExistState :: [(Double, Double, Double)]
-                 -> (Int, Int)
-                 -> AlpacaData StdGen
-                 -> ( forall n. KnownNat n
-                    => Proxy n
-                    -> Bool
-                    -> (Universe (F.Finite n) -> StdGen -> T.ExistState)
-                    -> a )
-                 -> a
-    mkExistState cols
-                 (numcols, numrows)
-                 AlpacaData{ rule = (rule :: CARuleA (Rand StdGen) Point (F.Finite n'))
-                           , initConfig, stateData }
-                 f =
-        f (Proxy @n') (isJust initConfig) $ \newUniv g -> T.ExistState $ T.ExistState'
-            { _defaultSize = (Coord numcols, Coord numrows)
-            , _defaultVal  = const 0
-            , _state2color = \s -> cols !! fromInteger (F.getFinite s)
-            , _rule = rule
-            , _getName = Just . fst . stateData
-            , _currentPattern = (newUniv, g)
-            , _saved = Nothing
-            , _clipboardContents = Nothing
-            }
-
 class Monad m => Paths m where
     -- | Get the name of the current rule
     getCurrentRuleName :: m (Maybe String)
-    -- | Get the path of the current rule
-    getCurrentRulePath :: m (Maybe FilePath)
-    -- | Set the path of the current rule
-    setCurrentRulePath :: Maybe FilePath -> m ()
-
-    getPredefinedRulesDir :: m FilePath
-    getUserRulesDir :: m FilePath
-
-    -- | Get the text of the current rule
-    getRuleText :: m Text
-    -- | Write text of rule to a file
-    writeRule :: FilePath -> Text -> m ()
-    -- | Set the rule window to display a specific rule
-    setRuleWindowRule
-        :: Text    -- ^ Text of rule
-        -> m ()
 
     -- | Get the path of the current pattern, if any
     getCurrentPatternPath :: m (Maybe FilePath)
@@ -391,29 +259,6 @@ class Monad m => Paths m where
     writeSheet :: FilePath -> Text -> m ()
     -- | Set the stylesheet window to display the text of a specific stylesheet
     setStylesheetWindowStylesheet :: String -> m ()
-
--- | Given a rule name, find its path and read its contents
-locateRuleByName
-    :: (Files m, Paths m)
-    => String                      -- ^ rule name
-    -> m (Maybe FilePath)          -- ^ another method to find a path, for if the rule cannot be found
-    -> m (Maybe (FilePath, Text))  -- ^ the path and contents of the rule, if it was found
-locateRuleByName rule cantFind = do
-    predefDir <- getPredefinedRulesDir 
-    userDir   <- getUserRulesDir 
-
-    rules <- listDirectories [userDir, predefDir]
-    let rulePathMay = find ((rule==) . takeBaseName) rules
-    rulePath <- case rulePathMay of
-        Nothing -> cantFind >>= \case
-            Nothing -> return Nothing
-            p@(Just _) -> return p
-        p@(Just _) -> return p
-    case rulePath of
-        Nothing -> return Nothing
-        Just path -> do
-            contents <- readTextFile path
-            return $ Just (path, contents)
 
 class Monad m => RenderCanvas m where
     -- | The type of any context which may be required to render on the canvas.

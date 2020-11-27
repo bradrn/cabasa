@@ -33,7 +33,6 @@ executable cabasa
                      , Menu
                      , Types
                      , Types.Application
-                     , SetRuleWindow
                      , Settings
                      , ShowDialog
                      , StylesheetWindow

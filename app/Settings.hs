@@ -34,9 +34,7 @@ settingsLocation = (</>) <$> configDir <*> pure "settings.yaml"
     
 defaultSettings :: IO T.Settings
 defaultSettings = do
-    _predefinedRulesDir <- Just <$> getXdgDirectory XdgConfig "Cabasa/Rules"
-    _userRulesDir       <- Just <$> (getUserDocumentsDirectory <&> (</> "Cabasa"))
-    return T.Settings{_gridSize = Just (100, 100), ..}
+    return T.Settings{_gridSize = Just (100, 100)}
 
 data SettingsError = NonexistentFile | ParseError String
 

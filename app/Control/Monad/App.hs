@@ -146,27 +146,11 @@ instance GetOps App where
             , getName = s ^. T.getName
             }
 
-    modifyState f = withApp $ \app -> T.modifyState app f
-    modifyStateM f = withApp $ \app -> T.modifyStateM app $ \x -> runApp (f x) app
-    writeState x = withApp $ \app -> T.writeState app x
-    withState f = withApp $ \app -> T.withState app $ \x -> runApp (f x) app
-
-    updateStatesList ns = ask >>= \app -> liftIO $ do
-        let curstatem = app ^. T.curstatem
-            curstate  = app ^. T.curstate
-        listStoreClear curstatem
-        forM_ ns $ \val -> do
-            iter <- listStoreAppend curstatem
-            val' <- toGValue (fromIntegral val :: CInt)
-            listStoreSet curstatem iter [0] [val']
-        comboBoxSetActive curstate 0
-
 instance Windows App where
     showMessageDialog mt bt t c =
         withApp $ \app -> SD.showMessageDialog (app ^. T.window) mt bt t $ \r -> runApp (c r) app
 
     mainQuit = liftIO GI.Gtk.mainQuit
-    setRuleWindowDelete = view T.setRuleWindow >>= liftIO . widgetHide
     stylesheetWindowDelete = view T.editSheetWindow >>= liftIO . widgetHide
 
     runGridSizeDialog (cols, rows) callback = do
@@ -183,12 +167,6 @@ instance Windows App where
             _ -> pure ()
         widgetHide d
     showSettingsDialog callback = do
-        _ <- getSetting' T.predefinedRulesDir >>= \ss ->
-            view T.predefRulesDirChooser >>= liftIO . flip fileChooserSetCurrentFolder ss
-
-        _ <- getSetting' T.userRulesDir >>= \ss ->
-            view T.userRulesDirChooser >>= liftIO . flip fileChooserSetCurrentFolder ss
-
         _ <- getSetting (T.gridSize . _Just . _1) >>= \ss ->
             view T.numColsAdjustment >>= liftIO . flip adjustmentSetValue (fromIntegral ss)
 
@@ -197,9 +175,6 @@ instance Windows App where
 
         view T.settingsWindow >>= liftIO . dialogRun >>= \case
             1 -> do  -- OK button
-                _predefinedRulesDir <- view T.predefRulesDirChooser >>= fileChooserGetFilename
-                _userRulesDir       <- view T.userRulesDirChooser >>= fileChooserGetFilename
-
                 _gridSize <- fmap Just $
                     (,) <$> (floor <$> (adjustmentGetValue =<< view T.numColsAdjustment))
                         <*> (floor <$> (adjustmentGetValue =<< view T.numRowsAdjustment))
@@ -211,7 +186,6 @@ instance Windows App where
 
         return ()
 
-    showSetRuleWindow = ask >>= \app -> widgetShowAll (app ^. T.setRuleWindow)
     showEditSheetWindow = ask >>= \app -> widgetShowAll (app ^. T.editSheetWindow)
 
     showAboutDialog = view T.window >>= \w -> liftIO $ do
@@ -263,7 +237,7 @@ instance Windows App where
         getPatternFileChooser app action = do
             fChooser <- fileChooserNativeNew
                 Nothing
-                (Just $ app ^. T.setRuleWindow)
+                (Just $ app ^. T.window)
                 action
                 Nothing Nothing
 
@@ -274,35 +248,6 @@ instance Windows App where
 
             return fChooser
 
-
-    withRuleFileDialog act callback = withApp $ \app -> do
-        withFileDialogChoice (getRuleFileChooser app) (toGtkAction act) $ \_ fName -> do
-            -- There are two places where the rule type can be
-            -- specified: the extension of the chosen file, or the
-            -- chosen file type filter. We use the former if it is
-            -- present, otherwise use the latter.
-            case act of
-                SaveFile -> runApp (callback () fName) app
-                OpenFile -> do
-                    p <- TIO.readFile fName
-                    runApp (callback p fName) app
-      where
-        -- Returns a file chooser preconfigured to save or open rule files
-        getRuleFileChooser :: T.Application -> GI.Gtk.FileChooserAction -> IO FileChooserNative
-        getRuleFileChooser app action = do
-            fChooser <- fileChooserNativeNew
-                Nothing
-                (Just $ app ^. T.setRuleWindow)
-                action
-                Nothing Nothing
-
-            alpacaFilter <- fileFilterNew
-            fileFilterSetName alpacaFilter $ Just "ALPACA files"
-            fileFilterAddPattern alpacaFilter "*.alp"
-            fileChooserAddFilter fChooser alpacaFilter
-            fileChooserSetFilter fChooser alpacaFilter
-
-            return fChooser
 
     withCSSFileDialog act callback = withApp $ \app -> do
         withFileDialogChoice (getCSSFileChooser app) (toGtkAction act) $ \_ path -> do
@@ -446,19 +391,6 @@ instance Files App where
 
 instance Paths App where
     getCurrentRuleName = withApp T.getCurrentRuleName
-    getCurrentRulePath = readIORef' T.currentRulePath
-    setCurrentRulePath = writeIORef' T.currentRulePath
-
-    getPredefinedRulesDir = getSetting' T.predefinedRulesDir
-    getUserRulesDir = getSetting' T.userRulesDir
-
-    getRuleText = view T.newRuleBuf >>= \newRuleBuf -> liftIO $ do
-        (start, end) <- textBufferGetBounds newRuleBuf
-        textBufferGetText newRuleBuf start end True
-    writeRule path rule = do
-        liftIO $ TIO.writeFile path rule
-        writeIORef' T.currentRulePath (Just path)
-    setRuleWindowRule ruleText = withApp $ \app -> setTextBufferText (app ^. T.newRuleBuf) ruleText
 
     getCurrentPatternPath = readIORef' T.currentPatternPath
     setCurrentPatternPath = writeIORef' T.currentPatternPath . Just

@@ -33,14 +33,8 @@ makeLenses ''Pos
 
 data Settings = Settings
   {
-    -- Predefined rules directory
-    _predefinedRulesDir :: Maybe FilePath
-
-    -- User-defined rules directory
-  , _userRulesDir       :: Maybe FilePath
-
     -- Default grid size (rows, columns)
-  , _gridSize           :: Maybe (Int, Int)
+    _gridSize :: Maybe (Int, Int)
   } deriving (Generic, Show)
 
 makeLenses ''Settings
