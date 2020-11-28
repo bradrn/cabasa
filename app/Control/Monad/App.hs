@@ -7,11 +7,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -28,7 +26,6 @@ import Data.Int (Int32)
 import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Proxy
-import Foreign.C.Types (CInt)
 import Foreign.Ptr (castPtr)
 import GHC.TypeLits (natVal, KnownNat)
 
@@ -294,7 +291,6 @@ instance SaveRestorePattern (App n) where
     restorePattern = do
         app <- ask
         liftIO $ do
-            state <- readIORef $ app ^. T.ruleConfig
             readIORef (app ^. T.saved) >>= \case
                 Just prev -> do
                     writeIORef (app ^. T.pos) $ snd prev

@@ -5,10 +5,7 @@
 
 module Types where
 
-import GHC.Generics
-
 import CA.Universe
-import Data.Aeson.TH (deriveJSON, defaultOptions, fieldLabelModifier)
 import Lens.Micro.TH (makeLenses)
 
 data InteractionMode

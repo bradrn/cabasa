@@ -10,13 +10,11 @@ module Types.Application where
 
 import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
-import Control.Monad.IO.Class (liftIO)
 import Data.Functor.Const
 import Data.IORef
-import GHC.TypeLits (KnownNat)
 
 import CA.Universe
-import Control.Monad.Random.Strict (MonadIO, StdGen, Rand)
+import Control.Monad.Random.Strict (StdGen, Rand)
 import Data.Array (array)
 import Data.Finite (Finite)
 import GI.Gtk hiding (Settings, Application)

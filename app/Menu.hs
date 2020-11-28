@@ -15,7 +15,7 @@ module Menu
     , changeGridSize
     ) where
 
-import Control.Monad (when, void)
+import Control.Monad (void)
 import Data.Bifunctor (first)
 import Data.Ix (range)
 

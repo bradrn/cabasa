@@ -3,13 +3,9 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE LambdaCase                #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeFamilies              #-}
 
 module Control.Monad.App.Class
@@ -34,26 +30,14 @@ module Control.Monad.App.Class
     , MonadRender(..)
     ) where
 
-import Control.Monad (when)
-import Data.Bifunctor (first)
-import Data.List (find)
-import Data.Maybe (isJust)
-import Data.Proxy
-import GHC.TypeLits (KnownNat, natVal)
-
 import Control.Monad.Random.Strict (StdGen, Rand)
-import qualified Data.Finite as F
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import GI.Gtk (MessageType(..), ButtonsType(..), ResponseType(..))
 import qualified Graphics.Rendering.Cairo as C
 import Graphics.Rendering.Cairo (Render)
-import Lens.Micro (Traversal', Lens', _Just, (^.))
-import System.FilePath (takeBaseName)
 
-import CA.ALPACA (AlpacaData(..), runALPACA)
-import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y), CARuleA)
+import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y))
 import qualified Types as T
-import qualified Types.Application as T
 
 class Monad m => GetOps a m | m -> a where
     -- TODO: get rid of this

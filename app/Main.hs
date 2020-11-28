@@ -16,7 +16,6 @@ import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
 import Control.Monad ((>=>), replicateM, forM_)
 import Control.Monad.IO.Class (liftIO)
-import Data.Functor (($>))
 import Data.Int (Int32)
 import Data.IORef
 import GHC.TypeLits (KnownNat)
@@ -37,7 +36,6 @@ import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point)
 import CA.Utils (moore, count)
 import Control.Monad.App (runApp)
 import Paths_cabasa
-import ShowDialog
 import Handlers
 import qualified Types as T
 import qualified Types.Application as T
