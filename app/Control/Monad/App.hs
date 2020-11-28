@@ -112,8 +112,7 @@ data GtkMouseEvent =
 instance KnownNat n => GetOps (F.Finite n) (App n) where
     getOps = do
         app <- ask
-        sRef <- view T.ruleConfig
-        (s :: T.RuleConfig n) <- liftIO $ readIORef sRef
+        s <- view T.ruleConfig
         clipboard <- liftIO $ readIORef (app ^. T.clipboardContents)
         currentPattern <- readIORef' T.currentPattern
         return Ops

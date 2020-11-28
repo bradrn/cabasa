@@ -69,8 +69,6 @@ launchCabasa ruleConfig = do
 
     guiObjects <- buildWithBuilder buildUI builder
 
-    _ruleConfig <- newIORef ruleConfig
-
     s <- getStdGen
     _currentPattern        <- newIORef (defaultPattern (T._defaultSize ruleConfig) (T._defaultVal ruleConfig), s)
 
@@ -97,6 +95,7 @@ launchCabasa ruleConfig = do
           T.Application { T._colors        = colors
                         , T._appGuiObjects = guiObjects
                         , T._appIORefs     = ioRefs
+                        , T._appRuleConfig = ruleConfig
                         }
 
     runApp addHandlers app

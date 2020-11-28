@@ -26,11 +26,12 @@ import System.FilePath (takeBaseName)
 import Types
 
 data Application n = Application
-    { -- These two fields need to be declared with an 'app' prefix so that e.g.
+    { -- These three fields need to be declared with an 'app' prefix so that e.g.
       -- the generated 'appGuiObjects' lenses don't conflict with the
       -- 'guiObjects' method in the generated 'HasGuiObjects' class
       _appGuiObjects :: GuiObjects
     , _appIORefs     :: IORefs n
+    , _appRuleConfig :: RuleConfig n
 
       -- A list of random colors. There isn't any other good place to put this,
       -- so we'll stick it in here.
@@ -83,8 +84,7 @@ data RuleConfig n = RuleConfig
 
 data IORefs n = IORefs
   {
-    _ruleConfig            :: IORef (RuleConfig n)
-  , _currentPattern        :: IORef (Universe (Finite n), StdGen)
+    _currentPattern        :: IORef (Universe (Finite n), StdGen)
   , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _generation            :: IORef Int                -- The current generation
@@ -138,11 +138,12 @@ getCurrentRuleName app = (fmap . fmap) takeBaseName $ readIORef (app ^. currentP
 
 makeClassy ''GuiObjects
 
-makeLenses ''RuleConfig
+makeClassy ''RuleConfig
 
 makeLenses ''Application
 instance HasIORefs (Application n) n where ioRefs = appIORefs
 instance HasGuiObjects (Application n) where guiObjects = appGuiObjects
+instance HasRuleConfig (Application n) n where ruleConfig = appRuleConfig
 
 -- | Get the actual pattern from the info stored in a 'CAVals''
 _defaultPattern :: (Coord 'X, Coord 'Y) -> (Point -> t) -> Universe t
