@@ -9,7 +9,8 @@
 {-# LANGUAGE TypeFamilies              #-}
 
 module Control.Monad.App.Class
-    ( GetOps(..)
+    ( Pattern(..)
+    , HasRuleConfig(..)
     , Windows(..)
     , Modes(..)
     , setPastePending
@@ -22,7 +23,7 @@ module Control.Monad.App.Class
     , Files(..)
     , Paths(..)
     , RenderCanvas(..)
-    , Ops(..)
+    , Clipboard(..)
     , FileChooserAction(..)
     , Optional
     , PointDiff(..)
@@ -38,10 +39,27 @@ import Graphics.Rendering.Cairo (Render)
 
 import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y))
 import qualified Types as T
+import Types.Application (RuleConfig(..))
 
-class Monad m => GetOps a m | m -> a where
-    -- TODO: get rid of this
-    getOps :: m (Ops a m)
+class Monad m => Pattern a m | m -> a where
+    -- | Get the current 'Universe'.
+    getPattern :: m (Universe a)
+
+    -- | Modify the current 'Universe' using a function which, given
+    -- the current 'Universe' and a random 'StdGen', returns an
+    -- updated 'Universe' and 'StdGen'.
+    modifyPattern :: (Universe a -> StdGen -> (Universe a, StdGen)) -> m ()
+
+class Monad m => HasRuleConfig n a m | m -> n, n -> a where
+    -- | Get the current rule config.
+    askRuleConfig :: m (RuleConfig n)
+
+    -- | Get the list of states for the current rule
+    states :: m [a]
+    -- | Encode a state value to an 'Int'
+    encodeInt :: m (a -> Int)
+    -- | Decode a state value from an 'Int'
+    decodeInt :: m (Int -> a)
 
 class Monad m => Windows m where
     showMessageDialog :: MessageType -> ButtonsType -> Text -> (ResponseType -> m a) -> m a
@@ -203,44 +221,11 @@ class Monad m => RenderCanvas m where
              -- ^ What to render. The argument is the (width, height) of the canvas.
         -> m ()
 
--- TODO: get rid of this
-data Ops a m = Ops
-    { -- | Get the current 'Universe'.
-      getPattern :: Universe a
-
-      -- | Modify the current 'Universe' using a function which, given
-      -- the current 'Universe' and a random 'StdGen', returns an
-      -- updated 'Universe' and 'StdGen'.
-    , modifyPattern :: (Universe a -> StdGen -> (Universe a, StdGen)) -> m ()
-
-      -- | Get the current CA rule.
-    , getRule :: Point -> Universe a -> Rand StdGen a
-
-      -- | Get the current clipboard value, if any.
-    , getClipboard :: Maybe (Universe a)
-
-      -- | Set the current clipboard value.
-    , setClipboard :: Maybe (Universe a) -> m ()
-
-      -- | Given a 'Point', get the default cell value associated
-      -- with it.
-    , defaultVal :: Point -> a
-
-      -- | Get the default 'Universe', used when a pattern is cleared.
-      -- This is computed from 'defaultVal'.
-    , defaultPattern :: Universe a
-
-      -- | Get the list of states for the current rule
-    , states :: [a]
-
-      -- | Encode a state value to an 'Int'
-    , encodeInt :: a -> Int
-      -- | Decode a state value from an 'Int'
-    , decodeInt :: Int -> a
-
-      -- | Get the (r,g,b) triplet corresponding to a state
-    , state2color :: a -> (Double, Double, Double)
-    }
+class Monad m => Clipboard a m | m -> a where
+    -- | Get the current clipboard value, if any.
+    getClipboard :: m (Maybe (Universe a))
+    -- | Set the current clipboard value.
+    setClipboard :: Maybe (Universe a) -> m ()
 
 -- | Action to choose a file. Includes a phantom type variable which
 -- expresses whether the action allows the contents to be read

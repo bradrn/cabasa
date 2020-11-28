@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
@@ -39,7 +40,7 @@ import qualified GI.Cairo
 import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Gdk (ModifierType(ModifierTypeButton1Mask), EventScroll)
 import qualified GI.Gdk
-import GI.Gtk hiding (FileChooserAction, Settings)
+import GI.Gtk hiding (FileChooserAction, Settings, Clipboard)
 import qualified GI.Gtk  -- for FileChooserAction
 import Data.GI.Base.Attributes
 import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
@@ -109,28 +110,18 @@ data GtkMouseEvent =
     , AttrGetC i3 ev "y" Double
     ) => GtkMouseEvent ev
 
-instance KnownNat n => GetOps (F.Finite n) (App n) where
-    getOps = do
-        app <- ask
-        s <- view T.ruleConfig
-        clipboard <- liftIO $ readIORef (app ^. T.clipboardContents)
-        currentPattern <- readIORef' T.currentPattern
-        return Ops
-            { getPattern = fst currentPattern
-            , getRule = s ^. T.rule
-            , modifyPattern = \r -> do
-                modifyIORefA' T.currentPattern $ uncurry r
-                redrawCanvas
-            , getClipboard = clipboard
-            , setClipboard = \u ->
-                liftIO $ writeIORef (app ^. T.clipboardContents) u
-            , defaultVal = s ^. T.defaultVal
-            , defaultPattern = s ^. T.defaultPattern
-            , states = F.finites
-            , encodeInt = fromIntegral
-            , decodeInt = F.finite . min (natVal $ Proxy @n) . toInteger
-            , state2color = s ^. T.state2color
-            }
+instance KnownNat n => Pattern (F.Finite n) (App n) where
+    getPattern = fst <$> readIORef' T.currentPattern
+    modifyPattern r = do
+        modifyIORefA' T.currentPattern $ uncurry r
+        redrawCanvas
+
+instance KnownNat n => HasRuleConfig n (F.Finite n) (App n) where
+    askRuleConfig = view T.ruleConfig
+
+    states = pure F.finites
+    encodeInt = pure fromIntegral
+    decodeInt = pure $ F.finite . min (natVal $ Proxy @n) . toInteger
 
 instance Windows (App n) where
     showMessageDialog mt bt t c =
@@ -352,6 +343,10 @@ instance RenderCanvas (App n) where
             w <- fromIntegral <$> widgetGetAllocatedWidth canvas
             h <- fromIntegral <$> widgetGetAllocatedHeight canvas
             return (w, h)
+
+instance KnownNat n => Clipboard (F.Finite n) (App n) where
+    getClipboard = readIORef' T.clipboardContents
+    setClipboard u = writeIORef' T.clipboardContents u
 
 modifyGeneration :: T.Application n -> (Int -> Int) -> IO ()
 modifyGeneration app f = do

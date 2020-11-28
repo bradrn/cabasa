@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -11,19 +12,22 @@ import Data.Foldable (for_)
 import Data.Functor (($>))
 
 import Data.Array (array, assocs, bounds)
+import Data.Finite (Finite)
 import Data.Text (pack)
 import Lens.Micro
 
 import CA.Universe
 import Control.Monad.App.Class
 import qualified Types as T
+import Types.Application (defaultPattern, _state2color)
 
-clearPattern :: (Canvas m, EvolutionSettings m, GetOps a m, SaveRestorePattern m) => m ()
+clearPattern :: (Canvas m, EvolutionSettings m, HasRuleConfig n (Finite n) m, Pattern (Finite n) m, SaveRestorePattern m) => m ()
 clearPattern = do
     modifyGen $ const 0
     modifyPos $ const T.Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
     resetRestorePattern
-    getOps >>= \Ops{..} -> modifyPattern $ curry $ first $ const defaultPattern
+    rc <- askRuleConfig
+    modifyPattern $ curry $ first $ const (rc ^. defaultPattern)
 
 data MouseGridPos = MouseGridPos
     { gridPos :: Point
@@ -53,7 +57,7 @@ zoom (scrollDir, evCoords) = do
         ScrollDirectionDown -> modifyCellPos (/2) (subtract viewX)     (subtract viewY)     $> True
         _                   -> return False
 
-canvasMouseHandler :: (Canvas m, EvolutionSettings m, GetOps a m, Modes m, MouseTracking m)
+canvasMouseHandler :: (Canvas m, Clipboard a m, EvolutionSettings m, HasRuleConfig n a m, Modes m, MouseTracking m, Pattern a m)
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
                    -> (Bool, (Double, Double))  -- ^ whether the mouse button was pressed, and (x, y), of mouse event
                    -> m Bool
@@ -70,9 +74,8 @@ canvasMouseHandler fromButtonPress (btnDown, coords) = do
             diff -> case curMode of
                 T.DrawMode -> do
                     stnum <- getCurrentDrawingState
-                    getOps >>= \Ops{..} ->
-                        let newst = states !! stnum
-                        in modifyPattern $ curry $ first $ modifyPoint gridP (const newst)
+                    newst <- (!!stnum) <$> states
+                    modifyPattern $ curry $ first $ modifyPoint gridP (const newst)
                 T.MoveMode -> case diff of
                     -- make pattern-match exhaustive to make GHC happy
                     NoDiff -> error "Unreachable case reached when moving!"
@@ -89,16 +92,15 @@ canvasMouseHandler fromButtonPress (btnDown, coords) = do
                             NewPoint -> Nothing
                             PointDiff _ -> Just (p1, gridP)
                 T.PastePendingMode oldMode -> do
-                    getOps >>= \Ops{..} ->
-                        case getClipboard of
-                            Nothing -> pure ()
-                            Just c -> modifyPattern $ curry $ first $ mergeAtPoint gridP c
+                    getClipboard >>= \case
+                        Nothing -> pure ()
+                        Just c -> modifyPattern $ curry $ first $ mergeAtPoint gridP c
                     setPasteSelectionOverlay Nothing
                     setMode oldMode
     else
         case curMode of
-            T.PastePendingMode _ -> getOps >>= \Ops{..} ->
-                case getClipboard of
+            T.PastePendingMode _ ->
+                getClipboard >>= \case
                     Nothing -> pure ()
                     Just ccs ->
                         let (w, h) = size ccs in
@@ -123,13 +125,15 @@ mergeAtPoint (Point x y) (Universe new) (Universe old) =
                 Nothing -> a
                 Just val' -> (i, val')
 
-drawCanvas :: (Canvas m, GetOps a m, RenderCanvas m) => RenderContext m -> m Bool
-drawCanvas ctx = getOps >>= \Ops{..} -> do
+drawCanvas :: (Canvas m, HasRuleConfig n (Finite n) m, Pattern (Finite n) m, RenderCanvas m) => RenderContext m -> m Bool
+drawCanvas ctx = do
     pos <- getPos
     selection <- getSelection
     pasteSelectionOverlay <- getPasteSelectionOverlay
+    state2color <- _state2color <$> askRuleConfig
+    _pattern <- getPattern
     renderWithContext ctx $ \csize ->
-        renderUniverse csize (state2color <$> getPattern) pos selection pasteSelectionOverlay
+        renderUniverse csize (state2color <$> _pattern) pos selection pasteSelectionOverlay
     return True
 
 renderUniverse :: MonadRender m
