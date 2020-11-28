@@ -26,7 +26,6 @@ import Control.Monad.App.Class
 import qualified Menu
 import qualified Canvas
 import qualified ControlButtons
-import qualified StylesheetWindow
 
 -- | A monad which allows adding event handlers to widgets. A
 -- typeclass is used instead of plain 'App' to avoid the execution of
@@ -66,7 +65,6 @@ addHandlers = do
     addMenuHandlers
     addCanvasHandlers
     addControlButtonsHandlers
-    addStylesheetWindowHandlers
  
 addMenuHandlers :: (KnownNat n, AddHandler n m) => m ()
 addMenuHandlers = do
@@ -86,8 +84,6 @@ addMenuHandlers = do
     on T.pasteToCanvas #activate $ getSelection >>= \sel -> when (isJust sel) setPastePending
 
     on T.changeGridSize #activate $ Menu.changeGridSize
-
-    on T.editSheet #activate $ showEditSheetWindow
 
     let when' p f = \x -> if p x then f x else x
 
@@ -125,13 +121,3 @@ addControlButtonsHandlers = do
     on T.step  #clicked $ (saveRestorePattern >> ControlButtons.runGen)
     on T.run   #clicked $ ControlButtons.runButtonHandler
     on T.reset #clicked $ ControlButtons.resetButtonHandler
-
-addStylesheetWindowHandlers :: (KnownNat n, AddHandler n m) => m ()
-addStylesheetWindowHandlers = do
-    on2 T.editSheetWindow #deleteEvent $ \_ -> stylesheetWindowDelete $> True
-
-    on T.editSheetWindowSetBtn #clicked $ StylesheetWindow.setBtnHandler
-
-    on T.saveSheetAs #activate $ StylesheetWindow.saveSheetHandler
-    on T.saveSheetAs #activate $ StylesheetWindow.saveSheetAsHandler
-    on T.openSheet   #activate $ StylesheetWindow.openSheetHandler

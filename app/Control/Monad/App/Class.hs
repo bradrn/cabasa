@@ -48,8 +48,6 @@ class Monad m => Windows m where
 
     -- | Quit the main window
     mainQuit :: m ()
-    -- | Delete the ‘edit stylesheet’ window
-    stylesheetWindowDelete :: m ()
 
     -- | Run dialog to select new grid size, and process the new size
     -- if one is returned.
@@ -57,9 +55,6 @@ class Monad m => Windows m where
         :: (Coord 'X, Coord 'Y)            -- ^ Previous grid size
         -> (Coord 'X -> Coord 'Y -> m ())  -- ^ Callback to process new grid size
         -> m ()
-
-    -- | Display the ‘edit sheet’ window
-    showEditSheetWindow :: m ()
 
     -- | Display the ‘about’ dialog
     showAboutDialog :: m ()
@@ -78,12 +73,6 @@ class Monad m => Windows m where
 
     -- | Run file dialog to select a pattern file.
     withPatternFileDialog
-        :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
-        -> (Optional Text i -> FilePath -> m a)
-                                -- ^ Callback with contents (if opening) and path of selected file
-        -> m (Maybe a)
-    -- | Run file dialog to select a CSS stylesheet file.
-    withCSSFileDialog
         :: FileChooserAction i  -- ^ Whether to show a file dialog to open or save
         -> (Optional Text i -> FilePath -> m a)
                                 -- ^ Callback with contents (if opening) and path of selected file
@@ -201,15 +190,6 @@ class Monad m => Paths m where
     -- | Write text of pattern to a file
     writePattern :: FilePath -> String -> m ()
 
-    -- | Get the text of the current stylesheet (or an empty string if there is none)
-    getStylesheetText :: m Text
-    -- | Get the path of the current stylesheet, if any
-    getCurrentStylesheetPath :: m (Maybe FilePath)
-    -- | Write text of stylesheet to a file
-    writeSheet :: FilePath -> Text -> m ()
-    -- | Set the stylesheet window to display the text of a specific stylesheet
-    setStylesheetWindowStylesheet :: String -> m ()
-
 class Monad m => RenderCanvas m where
     -- | The type of any context which may be required to render on the canvas.
     -- If no context is required, this will be @()@.
@@ -260,11 +240,6 @@ data Ops a m = Ops
 
       -- | Get the (r,g,b) triplet corresponding to a state
     , state2color :: a -> (Double, Double, Double)
-      -- | Set the function mapping states to colours
-    , setState2Color :: (a -> (Double, Double, Double)) -> m ()
-
-      -- | Get the name of a state, as a 'String'
-    , getName :: a -> Maybe String
     }
 
 -- | Action to choose a file. Includes a phantom type variable which
@@ -272,9 +247,8 @@ data Ops a m = Ops
 -- (for 'OpenFile') or not (for 'SaveFile', where the file may not
 -- exist before it is written). This variable may then be used as
 -- a parameter to the 'Optional' type family; this pattern is used in
--- the functions 'withPatternFileDialog', 'withRuleFileDialog' and
--- 'withCSSFileDialog' to output the file contents only if the file
--- is being opened.
+-- the functions 'withPatternFileDialog' and 'withRuleFileDialog'
+-- to output the file contents only if the file is being opened.
 data FileChooserAction (includeContents :: Bool) where
     OpenFile :: FileChooserAction 'True
     SaveFile :: FileChooserAction 'False

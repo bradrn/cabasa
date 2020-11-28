@@ -54,7 +54,6 @@ data GuiObjects = GuiObjects
     , _drawMode              :: MenuItem
     , _moveMode              :: MenuItem
     , _selectMode            :: MenuItem
-    , _editSheet             :: MenuItem
     , _about                 :: MenuItem
     , _uman                  :: MenuItem
     , _run                   :: Button
@@ -68,12 +67,6 @@ data GuiObjects = GuiObjects
     , _drawopts              :: Box
     , _curstate              :: ComboBox
     , _curstatem             :: ListStore
-    , _editSheetWindow       :: Window
-    , _openSheet             :: MenuItem
-    , _saveSheet             :: MenuItem
-    , _saveSheetAs           :: MenuItem
-    , _sheetBuf              :: TextBuffer
-    , _editSheetWindowSetBtn :: Button
     , _numColsAdjustment     :: Adjustment
     , _numRowsAdjustment     :: Adjustment
     , _newGridSizeDialog     :: Dialog
@@ -86,7 +79,6 @@ data RuleConfig n = RuleConfig
     , _defaultSize :: (Coord 'X, Coord 'Y)           -- ^ Default (width, height) of grid
     , _defaultVal  :: Point -> Finite n                     -- ^ The default value at each point
     , _state2color :: Finite n -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
-    , _getName :: Finite n -> Maybe String                  -- ^ Given a state, get its optional name as a string. Used with ALPACA stylesheets.
     }
 
 data IORefs n = IORefs
@@ -95,7 +87,6 @@ data IORefs n = IORefs
   , _currentPattern        :: IORef (Universe (Finite n), StdGen)
   , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
-  , _currentStylesheetPath :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _generation            :: IORef Int                -- The current generation
   , _currentMode           :: IORef InteractionMode    -- The current mode
   , _delay                 :: IORef Int                -- The number of microseconds between evolutions

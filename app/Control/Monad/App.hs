@@ -131,9 +131,6 @@ instance KnownNat n => GetOps (F.Finite n) (App n) where
             , encodeInt = fromIntegral
             , decodeInt = F.finite . min (natVal $ Proxy @n) . toInteger
             , state2color = s ^. T.state2color
-            , setState2Color = \u ->
-                liftIO $ writeIORef sRef $ s & T.state2color .~ u
-            , getName = s ^. T.getName
             }
 
 instance Windows (App n) where
@@ -141,7 +138,6 @@ instance Windows (App n) where
         withApp $ \app -> SD.showMessageDialog (app ^. T.window) mt bt t $ \r -> runApp (c r) app
 
     mainQuit = liftIO GI.Gtk.mainQuit
-    stylesheetWindowDelete = view T.editSheetWindow >>= liftIO . widgetHide
 
     runGridSizeDialog (cols, rows) callback = do
         colsAdj <- view T.newNumColsAdjustment
@@ -156,8 +152,6 @@ instance Windows (App n) where
                 callback (Coord newCols) (Coord newRows)
             _ -> pure ()
         widgetHide d
-
-    showEditSheetWindow = ask >>= \app -> widgetShowAll (app ^. T.editSheetWindow)
 
     showAboutDialog = view T.window >>= \w -> liftIO $ do
         a <- aboutDialogNew
@@ -216,30 +210,6 @@ instance Windows (App n) where
             fileFilterSetName mCellFilter $ Just "MCell files (*.mcl)"
             fileFilterAddPattern mCellFilter "*.mcl"
             fileChooserAddFilter fChooser mCellFilter
-
-            return fChooser
-
-
-    withCSSFileDialog act callback = withApp $ \app -> do
-        withFileDialogChoice (getCSSFileChooser app) (toGtkAction act) $ \_ path -> do
-            case act of
-                SaveFile -> runApp (callback () path) app
-                OpenFile -> do
-                    p <- TIO.readFile path
-                    runApp (callback p path) app
-      where
-        getCSSFileChooser :: T.Application n -> GI.Gtk.FileChooserAction -> IO FileChooserNative
-        getCSSFileChooser app ac = do
-            fChooser <- fileChooserNativeNew
-                Nothing
-                (Just $ app ^. T.editSheetWindow)
-                ac
-                Nothing Nothing
-
-            cssFilter <- fileFilterNew
-            fileFilterSetName cssFilter $ Just "ALPACA Stylesheets files (*.css)"
-            fileFilterAddPattern cssFilter "*.css"
-            fileChooserAddFilter fChooser cssFilter
 
             return fChooser
 
@@ -369,17 +339,6 @@ instance Paths (App n) where
     writePattern path contents = do
         liftIO $ writeFile path contents
         writeIORef' T.currentPatternPath $ Just path
-
-    getStylesheetText = view T.sheetBuf >>= \sheetBuf -> liftIO $ do
-        (start, end) <- textBufferGetBounds sheetBuf
-        textBufferGetText sheetBuf start end True
-    getCurrentStylesheetPath = readIORef' T.currentStylesheetPath
-    writeSheet file contents = view T.currentStylesheetPath >>= \path -> liftIO $ do
-        TIO.writeFile (file -<.> "css") contents
-        writeIORef path (Just file)
-    setStylesheetWindowStylesheet ss = do
-        sheetBuf <- view T.sheetBuf
-        liftIO $ setTextBufferText sheetBuf $ pack ss
 
 instance RenderCanvas (App n) where
     type RenderContext (App n) = GI.Cairo.Context
