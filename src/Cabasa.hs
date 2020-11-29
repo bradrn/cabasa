@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications                                   #-}
 {-# OPTIONS_GHC -Werror=missing-fields -fno-warn-unused-do-bind #-}
 
-module Cabasa (launchCabasa) where
+module Cabasa (launchCabasa, PersistMethod(..)) where
 
 import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
@@ -18,6 +18,8 @@ import Control.Monad ((>=>), replicateM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Int (Int32)
 import Data.IORef
+import Data.Maybe (fromMaybe)
+import Text.Read (readMaybe)
 
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Data.Array (array)
@@ -29,9 +31,10 @@ import GI.Gtk hiding (init, main)
 import qualified GI.Gtk as G
 import GI.Gdk (screenGetDefault)
 import Lens.Micro
+import System.Directory (doesFileExist)
 
 import CA.Core (pureRule, peek, CARuleA)
-import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point))
+import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point), toList, fromList)
 import CA.Utils (moore, count)
 import Cabasa.Handlers
 import qualified Cabasa.Types as T
@@ -39,8 +42,10 @@ import qualified Cabasa.Types.Application as T
 import Control.Monad.App (runApp)
 import Paths_cabasa
 
-launchCabasa :: T.RuleConfig t -> IO ()
-launchCabasa ruleConfig = do
+data PersistMethod = NoPersist | FilePersist FilePath
+
+launchCabasa :: PersistMethod -> T.RuleConfig t -> IO ()
+launchCabasa persist ruleConfig = do
     G.init Nothing
     builder <- builderNew
     builderAddFromFile builder . pack =<< getDataFileName "cabasa.glade"
@@ -53,7 +58,11 @@ launchCabasa ruleConfig = do
     guiObjects <- buildWithBuilder buildUI builder
 
     s <- getStdGen
-    _currentPattern        <- newIORef (defaultPattern (T._defaultSize ruleConfig) (T._defaultVal ruleConfig), s)
+    persisted <- readPersist persist (T._decodeInt ruleConfig)
+    _currentPattern        <- newIORef
+        ( flip fromMaybe persisted $ defaultPattern (T._defaultSize ruleConfig) (T._defaultVal ruleConfig)
+        , s
+        )
 
     _saved                 <- newIORef Nothing
     _clipboardContents     <- newIORef Nothing
@@ -83,9 +92,29 @@ launchCabasa ruleConfig = do
 
     runApp addHandlers app
 
-    on (guiObjects ^. T.window) #destroy $ mainQuit
+    on (guiObjects ^. T.window) #destroy $ writePersist app persist >> mainQuit
     widgetShowAll (guiObjects ^. T.window)
     G.main
+
+readPersist :: PersistMethod -> (Int -> a) -> IO (Maybe (Universe a))
+readPersist NoPersist _ = return Nothing
+readPersist (FilePersist file) decodeInt =
+    doesFileExist file >>= \case
+        False -> return Nothing
+        True -> readMaybe <$> readFile file >>= \case
+            Nothing -> return Nothing
+            Just encodedPattern ->
+                return $ Just $ decodeInt <$> fromList encodedPattern
+
+writePersist :: T.Application a -> PersistMethod -> IO ()
+writePersist _ NoPersist = pure ()
+writePersist app (FilePersist file) = do
+    (_pattern, _) <- readIORef $ app ^. T.currentPattern
+    let encodedPattern = toList $ (app ^. T.encodeInt) <$> _pattern
+    writeFile file $ show encodedPattern
+    -- I know 'show' isn’t a very good serialisation method, but it’s
+    -- good enough for now and I can always replace it with something
+    -- better if needed
 
 -- | Get the actual pattern from the info stored in a 'CAVals''
 defaultPattern :: (Coord 'X, Coord 'Y) -> (Point -> t) -> Universe t
