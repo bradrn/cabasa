@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications                                   #-}
 {-# OPTIONS_GHC -Werror=missing-fields -fno-warn-unused-do-bind #-}
 
-module Main (main) where
+module Cabasa (launchCabasa) where
 
 import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)
@@ -33,30 +33,11 @@ import Lens.Micro
 import CA.Core (pureRule, peek, CARuleA)
 import CA.Universe (Universe(Universe), Coord(..), Point, Axis(..), Point(Point))
 import CA.Utils (moore, count)
+import Cabasa.Handlers
+import qualified Cabasa.Types as T
+import qualified Cabasa.Types.Application as T
 import Control.Monad.App (runApp)
 import Paths_cabasa
-import Handlers
-import qualified Types as T
-import qualified Types.Application as T
-
-main :: IO ()
-main = do
-    let _rule :: Applicative t => CARuleA t Point (Finite 2)
-        _rule = pureRule $ \p g ->
-            -- mostly copied from the cellular-automata library
-            let surrounds = count (==1) ((`peek` g) <$> moore False p) in
-                case peek p g of
-                    0 -> if surrounds == 3          then 1 else 0
-                    1 -> if surrounds `elem` [2, 3] then 1 else 0
-                    _ -> error "error in finite - unreachable code reached!"
-        _defaultSize = (100, 100)
-        _defaultVal  = const 0
-        _state2color st = if st == 1 then (0,0,0) else (1,1,1)
-        _getName = const Nothing
-        _states = [0,1]
-        _encodeInt = fromIntegral
-        _decodeInt = fromIntegral
-    launchCabasa T.RuleConfig{..}
 
 launchCabasa :: T.RuleConfig t -> IO ()
 launchCabasa ruleConfig = do

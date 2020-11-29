@@ -6,7 +6,7 @@
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Types.Application where
+module Cabasa.Types.Application where
 
 import Control.Concurrent (ThreadId)
 import Data.IORef
@@ -19,7 +19,7 @@ import Lens.Micro
 import Lens.Micro.TH (makeClassy, classyRules, lensClass, makeLenses, makeLensesWith)
 import System.FilePath (takeBaseName)
 
-import Types
+import Cabasa.Types
 
 data Application a = Application
     { -- These three fields need to be declared with an 'app' prefix so that e.g.

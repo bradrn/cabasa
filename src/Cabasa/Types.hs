@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TemplateHaskell        #-}
 
-module Types where
+module Cabasa.Types where
 
 import Control.Arrow ((&&&))
 import Data.Functor.Const

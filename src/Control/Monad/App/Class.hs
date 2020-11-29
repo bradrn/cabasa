@@ -38,7 +38,7 @@ import qualified Graphics.Rendering.Cairo as C
 import Graphics.Rendering.Cairo (Render)
 
 import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y))
-import qualified Types as T
+import qualified Cabasa.Types as T
 
 class Monad m => Pattern a m | m -> a where
     -- | Get the current 'Universe'.

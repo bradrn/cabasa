@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
-module Canvas where
+module Cabasa.Canvas where
 
 import Control.Monad (when)
 import Data.Bifunctor (first)
@@ -17,8 +17,8 @@ import Lens.Micro
 
 import CA.Universe
 import Control.Monad.App.Class
-import qualified Types as T
-import Types (defaultPattern, _state2color)
+import qualified Cabasa.Types as T
+import Cabasa.Types (defaultPattern, _state2color)
 
 clearPattern :: (Canvas m, EvolutionSettings m, HasRuleConfig a m, Pattern a m, SaveRestorePattern m) => m ()
 clearPattern = do

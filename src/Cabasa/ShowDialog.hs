@@ -7,7 +7,7 @@
 -- Utils would require one of the functions from Settings. This
 -- module is used as a circuit-breaker so this situation does not
 -- occur.
-module ShowDialog (showMessageDialog, dialogRun') where
+module Cabasa.ShowDialog (showMessageDialog, dialogRun') where
 
 import Control.Monad.IO.Class (MonadIO)
 import GHC.Stack (HasCallStack)

@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
-module Menu
+module Cabasa.Menu
     ( savePattern
     , savePatternAs
     , openPattern
@@ -30,7 +30,7 @@ import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (toList, fromList, size, clipInside, Bounds(..))
 import Control.Monad.App.Class
 
-import Types (RuleConfig(..))
+import Cabasa.Types (RuleConfig(..))
 
 copyCanvas :: (Canvas m, Clipboard a m, Pattern a m) => m ()
 copyCanvas = getSelection >>= \case

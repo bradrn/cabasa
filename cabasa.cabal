@@ -19,21 +19,21 @@ data-files:          data/cabasa.glade
                    , data/cabasa.css
                    , data/doc/UserManual.pdf
 
-executable cabasa
+library
   -- from https://making.pusher.com/top-tips-and-tools-for-optimising-haskell/
   ghc-options:         -Wall -threaded -funfolding-use-threshold=16 -O2 -optc-O3
-  hs-source-dirs:      app
-  main-is:             Main.hs
+  hs-source-dirs:      src
+  exposed-modules:     Cabasa
+                     , Cabasa.Types
   other-modules:       Paths_cabasa
-                     , Canvas
+                     , Cabasa.Canvas
+                     , Cabasa.ControlButtons
+                     , Cabasa.Handlers
+                     , Cabasa.Menu
+                     , Cabasa.Types.Application
+                     , Cabasa.ShowDialog
                      , Control.Monad.App
                      , Control.Monad.App.Class
-                     , ControlButtons
-                     , Handlers
-                     , Menu
-                     , Types
-                     , Types.Application
-                     , ShowDialog
   default-language:    Haskell2010
   build-depends:       base             >= 4.7  && < 5
                      , cellular-automata

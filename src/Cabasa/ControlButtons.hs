@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns   #-}
 
-module ControlButtons where
+module Cabasa.ControlButtons where
 
 import CA.Universe (evolveA)
 import Control.Monad.Random.Strict (runRand)
 
 import Control.Monad.App.Class
-import Types (RuleConfig(..))
+import Cabasa.Types (RuleConfig(..))
 
 runButtonHandler :: (EvolutionSettings m, HasRuleConfig a m, Pattern a m, PlayThread m, SaveRestorePattern m) => m ()
 runButtonHandler = togglePlayThread saveRestorePattern runGen

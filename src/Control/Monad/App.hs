@@ -49,9 +49,9 @@ import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
 
 import Control.Monad.App.Class
-import qualified ShowDialog as SD
-import qualified Types as T
-import qualified Types.Application as T
+import qualified Cabasa.ShowDialog as SD
+import qualified Cabasa.Types as T
+import qualified Cabasa.Types.Application as T
 import Paths_cabasa
 
 -- | A concrete implementation of the 'MonadApp' interface.

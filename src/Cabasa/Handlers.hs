@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
 
-module Handlers (addHandlers) where
+module Cabasa.Handlers (addHandlers) where
 
 import Control.Monad (when, (>=>))
 import Data.Functor (($>))
@@ -19,13 +19,13 @@ import GI.Gdk.Flags (EventMask(..))
 import Lens.Micro
 
 import Control.Monad.App
-import qualified Types as T
-import qualified Types.Application as T
+import qualified Cabasa.Types as T
+import qualified Cabasa.Types.Application as T
 
 import Control.Monad.App.Class
-import qualified Menu
-import qualified Canvas
-import qualified ControlButtons
+import qualified Cabasa.Menu as Menu
+import qualified Cabasa.Canvas as Canvas
+import qualified Cabasa.ControlButtons as ControlButtons
 
 -- | A monad which allows adding event handlers to widgets. A
 -- typeclass is used instead of plain 'App' to avoid the execution of
