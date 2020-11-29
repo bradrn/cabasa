@@ -64,8 +64,6 @@ data GuiObjects = GuiObjects
     , _drawopts              :: Box
     , _curstate              :: ComboBox
     , _curstatem             :: ListStore
-    , _numColsAdjustment     :: Adjustment
-    , _numRowsAdjustment     :: Adjustment
     , _newGridSizeDialog     :: Dialog
     , _newNumColsAdjustment  :: Adjustment
     , _newNumRowsAdjustment  :: Adjustment

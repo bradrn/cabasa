@@ -114,7 +114,6 @@ buildUI = do
     _savePattern   <- getObject MenuItem "savePattern"
     _savePatternAs <- getObject MenuItem "savePatternAs"
     _openPattern   <- getObject MenuItem "openPattern"
-    _runSettings   <- getObject MenuItem "runSettings"
     _quit          <- getObject MenuItem "quit"
     _cutCanvas     <- getObject MenuItem "cutCanvas"
     _copyCanvas    <- getObject MenuItem "copyCanvas"
@@ -127,7 +126,6 @@ buildUI = do
     _drawMode      <- getObject MenuItem "drawMode"
     _moveMode      <- getObject MenuItem "moveMode"
     _selectMode    <- getObject MenuItem "selectMode"
-    _editSheet     <- getObject MenuItem "editSheet"
     _about         <- getObject MenuItem "about"
     _uman          <- getObject MenuItem "uman"
 
@@ -154,24 +152,6 @@ buildUI = do
         cellLayoutPackStart _curstate curstateRenderer True
         cellLayoutClearAttributes _curstate curstateRenderer
         cellLayoutAddAttribute _curstate curstateRenderer "text" 0
-
-    ------- ALPACA Stylesheets dialog -------
-
-    _editSheetWindow       <- getObject Window   "editSheetWindow"
-    _openSheet             <- getObject MenuItem "openSheet"
-
-    _saveSheet             <- getObject MenuItem "saveSheet"
-    _saveSheetAs           <- getObject MenuItem "saveSheetAs"
-    _sheetBuf              <- getObject TextView "sheetView" >>= textViewGetBuffer
-    _editSheetWindowSetBtn <- getObject Button   "editSheetWindowSetBtn"
-
-    ------- Settings dialog -----------
-
-    _settingsWindow        <- getObject Dialog            "settingsWindow"
-    _settingsCancelBtn     <- getObject Button            "settingsCancelBtn"
-    _settingsOkBtn         <- getObject Button            "settingsOkBtn"
-    _numColsAdjustment     <- getObject Adjustment        "numColsAdjustment"
-    _numRowsAdjustment     <- getObject Adjustment        "numRowsAdjustment"
 
     ------- New grid size dialog -----------
     _newGridSizeDialog    <- getObject Dialog     "newGridSizeDialog"
