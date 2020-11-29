@@ -21,7 +21,6 @@ import Data.Bifunctor (first)
 import Data.Ix (range)
 
 import qualified CA.Format.MCell as MC
-import qualified Data.Finite as F
 import Data.Text (pack, unpack)
 import Lens.Micro hiding (set)
 import System.FilePath ((-<.>))
@@ -38,7 +37,7 @@ copyCanvas = getSelection >>= \case
     Nothing -> pure ()    -- Can't copy when there's no selection!
     Just ps -> doCopy ps
 
-cutCanvas :: (Canvas m, Clipboard (F.Finite n) m, HasRuleConfig n (F.Finite n) m, Pattern (F.Finite n) m) => m ()
+cutCanvas :: (Canvas m, Clipboard a m, HasRuleConfig a m, Pattern a m) => m ()
 cutCanvas = getSelection >>= \case
     Nothing -> pure ()    -- Can't cut when there's no selection!
     Just ps@(Point x1 y1, Point x2 y2) ->
@@ -67,7 +66,7 @@ doCopy (Point x1 y1, Point x2 y2) = do
             }
     setClipboard (Just $ fromList vals)
 
-changeGridSize :: (HasRuleConfig n a m, Pattern (F.Finite n) m, Windows m) => m ()
+changeGridSize :: (HasRuleConfig a m, Pattern a m, Windows m) => m ()
 changeGridSize = do
     RuleConfig{_defaultVal} <- askRuleConfig
     _pattern <- getPattern
@@ -110,15 +109,15 @@ changeGridSize = do
                            [0..width] <&> \col -> def (Point col row)
                    in u' ++ newRowVals
 
-savePattern :: (HasRuleConfig n a m, Paths m, Pattern a m, Windows m) => m ()
+savePattern :: (HasRuleConfig a m, Paths m, Pattern a m, Windows m) => m ()
 savePattern = getCurrentPatternPath >>= \case
     Nothing   -> savePatternAs
     Just path -> writeCurrentPattern path
 
-savePatternAs :: (HasRuleConfig n a m, Paths m, Pattern a m, Windows m) => m ()
+savePatternAs :: (HasRuleConfig a m, Paths m, Pattern a m, Windows m) => m ()
 savePatternAs = void $ withPatternFileDialog SaveFile $ const writeCurrentPattern
 
-writeCurrentPattern :: (Paths m, HasRuleConfig n a m, Pattern a m) => FilePath -> m ()
+writeCurrentPattern :: (Paths m, HasRuleConfig a m, Pattern a m) => FilePath -> m ()
 writeCurrentPattern fName = do
     ruleName <- getCurrentRuleName
     _pattern <- getPattern
@@ -141,7 +140,7 @@ openPattern ::
     ( Canvas m
     , EvolutionSettings m
     , Files m
-    , HasRuleConfig n a m
+    , HasRuleConfig a m
     , Paths m
     , Pattern a m
     , SaveRestorePattern m

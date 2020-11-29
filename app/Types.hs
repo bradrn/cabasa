@@ -13,7 +13,6 @@ import Data.Functor.Const
 import CA.Universe
 import Control.Monad.Random.Strict (StdGen, Rand)
 import Data.Array (array)
-import Data.Finite (Finite)
 import Lens.Micro
 import Lens.Micro.TH (makeLenses, makeClassy)
 
@@ -37,11 +36,14 @@ data Pos = Pos { _leftXCoord :: Coord 'X
 
 makeLenses ''Pos
 
-data RuleConfig n = RuleConfig
-    { _rule :: Point -> Universe (Finite n) -> Rand StdGen (Finite n)  -- ^ The rule itself
+data RuleConfig a = RuleConfig
+    { _rule :: Point -> Universe a -> Rand StdGen a  -- ^ The rule itself
     , _defaultSize :: (Coord 'X, Coord 'Y)           -- ^ Default (width, height) of grid
-    , _defaultVal  :: Point -> Finite n                     -- ^ The default value at each point
-    , _state2color :: Finite n -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
+    , _defaultVal  :: Point -> a                     -- ^ The default value at each point
+    , _state2color :: a -> (Double, Double, Double)  -- ^ A function to convert states into (red, green, blue) colours which are displayed on the grid
+    , _states       :: [a]                           -- ^ The states which can be selected from the state selection menu
+    , _encodeInt  :: a -> Int                        -- ^ Encodes a state into an integer which __must__ be between 0 and 255. Used to save a pattern to a file.
+    , _decodeInt  :: Int -> a                        -- ^ Decodes a state from an integer between 0 and 255. Used to load a pattern from a file.
     }
 
 makeClassy ''RuleConfig
@@ -58,7 +60,7 @@ _defaultPattern s v = Universe $ array (bounds s) (mkPoints s v)
       bounds :: (Coord 'X, Coord 'Y) -> (Point, Point)
       bounds (w,h) = (Point 0 0, Point (w-1) (h-1))
 
-defaultPattern :: SimpleGetter (RuleConfig n) (Universe (Finite n))
+defaultPattern :: SimpleGetter (RuleConfig a) (Universe a)
 defaultPattern = \out vals ->
     let s = vals ^. defaultSize
         v = vals ^. defaultVal

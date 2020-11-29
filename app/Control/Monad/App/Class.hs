@@ -49,9 +49,9 @@ class Monad m => Pattern a m | m -> a where
     -- updated 'Universe' and 'StdGen'.
     modifyPattern :: (Universe a -> StdGen -> (Universe a, StdGen)) -> m ()
 
-class Monad m => HasRuleConfig n a m | m -> n, n -> a where
+class Monad m => HasRuleConfig a m | m -> a where
     -- | Get the current rule config.
-    askRuleConfig :: m (T.RuleConfig n)
+    askRuleConfig :: m (T.RuleConfig a)
 
     -- | Get the list of states for the current rule
     states :: m [a]

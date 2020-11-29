@@ -13,7 +13,6 @@ import Data.IORef
 
 import CA.Universe
 import Control.Monad.Random.Strict (StdGen)
-import Data.Finite (Finite)
 import GI.Gtk hiding (Settings, Application)
 import Language.Haskell.TH.Syntax (mkName)
 import Lens.Micro
@@ -22,13 +21,13 @@ import System.FilePath (takeBaseName)
 
 import Types
 
-data Application n = Application
+data Application a = Application
     { -- These three fields need to be declared with an 'app' prefix so that e.g.
       -- the generated 'appGuiObjects' lenses don't conflict with the
       -- 'guiObjects' method in the generated 'HasGuiObjects' class
       _appGuiObjects :: GuiObjects
-    , _appIORefs     :: IORefs n
-    , _appRuleConfig :: RuleConfig n
+    , _appIORefs     :: IORefs a
+    , _appRuleConfig :: RuleConfig a
 
       -- A list of random colors. There isn't any other good place to put this,
       -- so we'll stick it in here.
@@ -72,9 +71,9 @@ data GuiObjects = GuiObjects
     , _newNumRowsAdjustment  :: Adjustment
     }
 
-data IORefs n = IORefs
+data IORefs a = IORefs
   {
-    _currentPattern        :: IORef (Universe (Finite n), StdGen)
+    _currentPattern        :: IORef (Universe a, StdGen)
   , _currentRulePath       :: IORef (Maybe FilePath)   -- The name of the current rule
   , _currentPatternPath    :: IORef (Maybe FilePath)   -- The path of the current pattern
   , _generation            :: IORef Int                -- The current generation
@@ -110,12 +109,12 @@ data IORefs n = IORefs
   , _pasteSelectionOverlay :: IORef (Maybe (CA.Universe.Point, CA.Universe.Point))
 
   -- The grid which is to be restored when the 'reset' button is pressed.
-  , _saved                 :: IORef (Maybe (Universe (Finite n), Pos))
+  , _saved                 :: IORef (Maybe (Universe a, Pos))
 
   -- The current contents of the clipboard, if any. GTK does provide
   -- an interface to the OS clipboard, but it's fairly tricky to
   -- use, so we just emulate our own clipboard.
-  , _clipboardContents     :: IORef (Maybe (Universe (Finite n)))
+  , _clipboardContents     :: IORef (Maybe (Universe a))
   }
 
 -- Basically this is just makeClassy, but we're changing the name of the

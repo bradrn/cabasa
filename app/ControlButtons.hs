@@ -5,12 +5,11 @@ module ControlButtons where
 
 import CA.Universe (evolveA)
 import Control.Monad.Random.Strict (runRand)
-import qualified Data.Finite as F
 
 import Control.Monad.App.Class
 import Types (RuleConfig(..))
 
-runButtonHandler :: (EvolutionSettings m, HasRuleConfig n a m, Pattern (F.Finite n) m, PlayThread m, SaveRestorePattern m) => m ()
+runButtonHandler :: (EvolutionSettings m, HasRuleConfig a m, Pattern a m, PlayThread m, SaveRestorePattern m) => m ()
 runButtonHandler = togglePlayThread saveRestorePattern runGen
 
 resetButtonHandler :: (EvolutionSettings m, PlayThread m, SaveRestorePattern m) => m ()
@@ -19,7 +18,7 @@ resetButtonHandler = do
     modifyGen $ const 0
     restorePattern
     
-runGen :: (EvolutionSettings m, HasRuleConfig n a m, Pattern (F.Finite n) m) => m ()
+runGen :: (EvolutionSettings m, HasRuleConfig a m, Pattern a m) => m ()
 runGen = do
     RuleConfig{_rule} <- askRuleConfig
     modifyPattern $ runRand . evolveA _rule

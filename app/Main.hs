@@ -18,7 +18,6 @@ import Control.Monad ((>=>), replicateM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Int (Int32)
 import Data.IORef
-import GHC.TypeLits (KnownNat)
 
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Data.Array (array)
@@ -54,9 +53,12 @@ main = do
         _defaultVal  = const 0
         _state2color st = if st == 1 then (0,0,0) else (1,1,1)
         _getName = const Nothing
+        _states = [0,1]
+        _encodeInt = fromIntegral
+        _decodeInt = fromIntegral
     launchCabasa T.RuleConfig{..}
 
-launchCabasa :: KnownNat n => T.RuleConfig n -> IO ()
+launchCabasa :: T.RuleConfig t -> IO ()
 launchCabasa ruleConfig = do
     G.init Nothing
     builder <- builderNew

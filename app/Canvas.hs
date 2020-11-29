@@ -12,7 +12,6 @@ import Data.Foldable (for_)
 import Data.Functor (($>))
 
 import Data.Array (array, assocs, bounds)
-import Data.Finite (Finite)
 import Data.Text (pack)
 import Lens.Micro
 
@@ -21,7 +20,7 @@ import Control.Monad.App.Class
 import qualified Types as T
 import Types (defaultPattern, _state2color)
 
-clearPattern :: (Canvas m, EvolutionSettings m, HasRuleConfig n (Finite n) m, Pattern (Finite n) m, SaveRestorePattern m) => m ()
+clearPattern :: (Canvas m, EvolutionSettings m, HasRuleConfig a m, Pattern a m, SaveRestorePattern m) => m ()
 clearPattern = do
     modifyGen $ const 0
     modifyPos $ const T.Pos{_leftXCoord=0,_topYCoord=0,_cellWidth=16,_cellHeight=16}
@@ -57,7 +56,7 @@ zoom (scrollDir, evCoords) = do
         ScrollDirectionDown -> modifyCellPos (/2) (subtract viewX)     (subtract viewY)     $> True
         _                   -> return False
 
-canvasMouseHandler :: (Canvas m, Clipboard a m, EvolutionSettings m, HasRuleConfig n a m, Modes m, MouseTracking m, Pattern a m)
+canvasMouseHandler :: (Canvas m, Clipboard a m, EvolutionSettings m, HasRuleConfig a m, Modes m, MouseTracking m, Pattern a m)
                    => Bool  -- ^ Is this being called from a @buttonPressEvent@?
                    -> (Bool, (Double, Double))  -- ^ whether the mouse button was pressed, and (x, y), of mouse event
                    -> m Bool
@@ -125,7 +124,7 @@ mergeAtPoint (Point x y) (Universe new) (Universe old) =
                 Nothing -> a
                 Just val' -> (i, val')
 
-drawCanvas :: (Canvas m, HasRuleConfig n (Finite n) m, Pattern (Finite n) m, RenderCanvas m) => RenderContext m -> m Bool
+drawCanvas :: (Canvas m, HasRuleConfig a m, Pattern a m, RenderCanvas m) => RenderContext m -> m Bool
 drawCanvas ctx = do
     pos <- getPos
     selection <- getSelection
