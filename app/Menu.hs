@@ -30,7 +30,8 @@ import CA.Core (peek, evolve)
 import CA.Types (Point(Point), Coord(Coord), Axis(X, Y), Universe)
 import CA.Universe (toList, fromList, size, clipInside, Bounds(..))
 import Control.Monad.App.Class
-import Types.Application (RuleConfig(..))
+
+import Types (RuleConfig(..))
 
 copyCanvas :: (Canvas m, Clipboard a m, Pattern a m) => m ()
 copyCanvas = getSelection >>= \case

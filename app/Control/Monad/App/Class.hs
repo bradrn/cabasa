@@ -39,7 +39,6 @@ import Graphics.Rendering.Cairo (Render)
 
 import CA.Universe (Point(..), Universe, Coord(..), Axis(X,Y))
 import qualified Types as T
-import Types.Application (RuleConfig(..))
 
 class Monad m => Pattern a m | m -> a where
     -- | Get the current 'Universe'.
@@ -52,7 +51,7 @@ class Monad m => Pattern a m | m -> a where
 
 class Monad m => HasRuleConfig n a m | m -> n, n -> a where
     -- | Get the current rule config.
-    askRuleConfig :: m (RuleConfig n)
+    askRuleConfig :: m (T.RuleConfig n)
 
     -- | Get the list of states for the current rule
     states :: m [a]

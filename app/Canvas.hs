@@ -19,7 +19,7 @@ import Lens.Micro
 import CA.Universe
 import Control.Monad.App.Class
 import qualified Types as T
-import Types.Application (defaultPattern, _state2color)
+import Types (defaultPattern, _state2color)
 
 clearPattern :: (Canvas m, EvolutionSettings m, HasRuleConfig n (Finite n) m, Pattern (Finite n) m, SaveRestorePattern m) => m ()
 clearPattern = do

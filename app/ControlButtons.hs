@@ -8,7 +8,7 @@ import Control.Monad.Random.Strict (runRand)
 import qualified Data.Finite as F
 
 import Control.Monad.App.Class
-import Types.Application (RuleConfig(..))
+import Types (RuleConfig(..))
 
 runButtonHandler :: (EvolutionSettings m, HasRuleConfig n a m, Pattern (F.Finite n) m, PlayThread m, SaveRestorePattern m) => m ()
 runButtonHandler = togglePlayThread saveRestorePattern runGen
