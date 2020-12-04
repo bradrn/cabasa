@@ -24,7 +24,7 @@ import Text.Read (readMaybe)
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Data.Array (array)
 import Data.Finite (Finite)
-import Data.Text hiding (count)
+import Data.Text (pack)
 import Data.GI.Base.GType (gtypeInt)
 import Data.GI.Gtk.BuildFn
 import GI.Gtk hiding (init, main)
@@ -55,7 +55,7 @@ launchCabasa persist ruleConfig = do
         Just screen -> styleContextAddProviderForScreen screen prov 800
         Nothing -> return ()
 
-    guiObjects <- buildWithBuilder buildUI builder
+    guiObjects <- buildWithBuilder (buildUI $ length $ T._states ruleConfig) builder
 
     s <- getStdGen
     persisted <- readPersist persist (T._decodeInt ruleConfig)
@@ -134,8 +134,10 @@ randomColors = fmap (([(1, 1, 1), (0, 0, 0)]++) . tuplize) $ replicateM 3 $ rand
     tuplize [(a:as), (b:bs), (c:cs)] = (a, b, c):tuplize [as, bs, cs]
     tuplize _ = error "ERROR in tuplize"
 
-buildUI :: BuildFn T.GuiObjects
-buildUI = do
+buildUI
+    :: Int  -- ^ Number of states
+    -> BuildFn T.GuiObjects
+buildUI nss = do
     _window <- getObject Window      "window"
 
     ------- Menu widgets --------------
@@ -173,7 +175,7 @@ buildUI = do
 
     _curstatem <- listStoreNew [gtypeInt]
     liftIO $ do
-        forM_ [0,1] $ toGValue @Int32 >=> \x ->
+        forM_ [0..fromIntegral nss-1] $ toGValue @Int32 >=> \x ->
             listStoreInsertWithValuesv _curstatem (-1) [0] [x]
         comboBoxSetModel _curstate (Just _curstatem)
         cellLayoutClear _curstate
