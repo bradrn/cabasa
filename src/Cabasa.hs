@@ -42,9 +42,25 @@ import qualified Cabasa.Types.Application as T
 import Control.Monad.App (runApp)
 import Paths_cabasa
 
-data PersistMethod = NoPersist | FilePersist FilePath
+-- | Specifies whether (and how) to persist the current pattern
+-- between runs.
+--
+-- (Motivation: in traditional CA simulation software, the pattern
+-- stays on the screen as the rule is changed. By contrast, a CA
+-- implemented with Cabasa must be closed and recompiled when the rule
+-- is changed; in order to imitate this behaviour, Cabasa thus takes
+-- the approach of persisting the pattern in a file between runs.)
+data PersistMethod
+    = NoPersist             -- ^ Disable persistence
+    | FilePersist FilePath  -- ^ Enable persistence, storing the pattern in the specified 'FilePath'
 
-launchCabasa :: PersistMethod -> T.RuleConfig t -> IO ()
+-- | Launch the Cabasa GUI. The intended use of this method is to be
+-- called from @main@ with the appropriate configuration; Cabasa will
+-- then handle all GUI setup and user interaction.
+launchCabasa
+    :: PersistMethod   -- ^ Whether to persist pattern state between runs
+    -> T.RuleConfig t  -- ^ The CA rule to be used with Cabasa
+    -> IO ()
 launchCabasa persist ruleConfig = do
     G.init Nothing
     builder <- builderNew
