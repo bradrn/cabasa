@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications                                   #-}
 {-# OPTIONS_GHC -Werror=missing-fields -fno-warn-unused-do-bind #-}
 
-module Cabasa (launchCabasa, PersistMethod(..)) where
+module Cabasa (launchCabasa, PersistMethod(..), T.RuleConfig(..)) where
 
 import Control.Arrow ((&&&))
 import Control.Concurrent (ThreadId)

@@ -24,12 +24,12 @@ library
   ghc-options:         -Wall -threaded -funfolding-use-threshold=16 -O2 -optc-O3
   hs-source-dirs:      src
   exposed-modules:     Cabasa
-                     , Cabasa.Types
   other-modules:       Paths_cabasa
                      , Cabasa.Canvas
                      , Cabasa.ControlButtons
                      , Cabasa.Handlers
                      , Cabasa.Menu
+                     , Cabasa.Types
                      , Cabasa.Types.Application
                      , Cabasa.ShowDialog
                      , Control.Monad.App

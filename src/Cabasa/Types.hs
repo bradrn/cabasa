@@ -48,7 +48,7 @@ data RuleConfig a = RuleConfig
 
 makeClassy ''RuleConfig
 
--- | Get the actual pattern from the info stored in a 'CAVals''
+-- | Get the actual pattern from the info stored in a 'RuleConfig'
 _defaultPattern :: (Coord 'X, Coord 'Y) -> (Point -> t) -> Universe t
 _defaultPattern s v = Universe $ array (bounds s) (mkPoints s v)
   where
