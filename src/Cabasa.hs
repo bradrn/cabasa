@@ -21,6 +21,7 @@ import Data.IORef
 import Data.Maybe (fromMaybe)
 import Text.Read (readMaybe)
 
+import Control.DeepSeq (NFData)
 import Control.Monad.Random.Strict (getStdGen, newStdGen, randomRs)
 import Data.Array (array)
 import Data.Finite (Finite)
@@ -58,7 +59,8 @@ data PersistMethod
 -- called from @main@ with the appropriate configuration; Cabasa will
 -- then handle all GUI setup and user interaction.
 launchCabasa
-    :: PersistMethod   -- ^ Whether to persist pattern state between runs
+    :: NFData t
+    => PersistMethod   -- ^ Whether to persist pattern state between runs
     -> T.RuleConfig t  -- ^ The CA rule to be used with Cabasa
     -> IO ()
 launchCabasa persist ruleConfig = do

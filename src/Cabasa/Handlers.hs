@@ -12,6 +12,7 @@ import Data.Functor (($>))
 import Data.Maybe (isJust)
 import GHC.TypeLits (KnownNat)
 
+import Control.DeepSeq (NFData)
 import Control.Monad.Reader (ask)
 import Data.GI.Base.Signals (SignalInfo, HaskellCallbackType, SignalProxy)
 import qualified GI.Gtk
@@ -60,13 +61,13 @@ instance AddHandler a (App a) where
     on2 w s h = ask >>= \app -> () <$ GI.Gtk.on (app ^. w) s (\r -> runApp (h r) app)
     widgetAddEvents w es = ask >>= \app -> GI.Gtk.widgetAddEvents (app ^. w) es
 
-addHandlers :: (AddHandler a m) => m ()
+addHandlers :: (NFData a, AddHandler a m) => m ()
 addHandlers = do
     addMenuHandlers
     addCanvasHandlers
     addControlButtonsHandlers
  
-addMenuHandlers :: (AddHandler a m) => m ()
+addMenuHandlers :: (NFData a, AddHandler a m) => m ()
 addMenuHandlers = do
     on T.drawMode #activate   $ setMode T.DrawMode
     on T.moveMode #activate   $ setMode T.MoveMode
@@ -92,7 +93,7 @@ addMenuHandlers = do
 
     on T.quit #activate $ mainQuit
 
-addCanvasHandlers :: (AddHandler a m) => m ()
+addCanvasHandlers :: (NFData a, AddHandler a m) => m ()
 addCanvasHandlers = do
     widgetAddEvents T.canvas
         [ EventMaskButtonPressMask
@@ -116,7 +117,7 @@ addCanvasHandlers = do
 
     return ()
 
-addControlButtonsHandlers :: (AddHandler a m) => m ()
+addControlButtonsHandlers :: (NFData a, AddHandler a m) => m ()
 addControlButtonsHandlers = do
     on T.step  #clicked $ (saveRestorePattern >> ControlButtons.runGen)
     on T.run   #clicked $ ControlButtons.runButtonHandler

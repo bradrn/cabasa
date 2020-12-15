@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Werror=missing-fields -Werror=missing-methods #-}
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -28,10 +29,12 @@ import Data.IORef
 import Data.Maybe (fromMaybe)
 import Foreign.Ptr (castPtr)
 
-import CA.Universe (Point(..), Coord(..))
+import CA.Universe (Universe, Point(..), Coord(..))
 import Control.Monad.Reader
 import Data.Text (pack)
 
+import Control.DeepSeq (NFData, force)
+import Control.Monad.Random.Strict (StdGen)
 import qualified Data.Text.IO as TIO
 import qualified GI.Cairo
 import Data.GI.Gtk.Threading (postGUIASync)
@@ -107,10 +110,13 @@ data GtkMouseEvent =
     , AttrGetC i3 ev "y" Double
     ) => GtkMouseEvent ev
 
-instance Pattern a (App a) where
-    getPattern = fst <$> readIORef' T.currentPattern
+forceUniversePair :: NFData a => (Universe a, StdGen) -> (Universe a, StdGen)
+forceUniversePair (u, !s) = (force u, s)
+
+instance NFData a => Pattern a (App a) where
+    getPattern = fst . forceUniversePair <$> readIORef' T.currentPattern
     modifyPattern r = do
-        modifyIORefA' T.currentPattern $ uncurry r
+        modifyIORefA' T.currentPattern $ forceUniversePair . uncurry r
         redrawCanvas
 
 instance HasRuleConfig a (App a) where
@@ -240,11 +246,12 @@ instance PlayThread (App a) where
         view T.delayLbl >>= \l -> liftIO $ labelSetText l (pack $ show d')
 
 instance SaveRestorePattern (App a) where
-    saveRestorePattern = do
-        p <- readIORef' T.pos
-        s <- readIORef' T.saved
-        (g, _) <- readIORef' T.currentPattern
-        writeIORef' T.saved $ Just $ fromMaybe (g, p) s
+    saveRestorePattern = readIORef' T.saved >>= \case
+        Just _ -> pure ()
+        Nothing -> do
+            p <- readIORef' T.pos
+            (g, _) <- readIORef' T.currentPattern
+            writeIORef' T.saved $ Just (g, p)
     restorePattern = do
         app <- ask
         liftIO $ do
