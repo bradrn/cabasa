@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 extra-source-files:  README.md
 data-files:          data/cabasa.glade
                    , data/cabasa.css
-                   , data/doc/UserManual.pdf
+                   , data/doc/UserManual.html
 
 library
   -- from https://making.pusher.com/top-tips-and-tools-for-optimising-haskell/
@@ -55,6 +55,7 @@ library
                      , microlens-mtl    >= 0.2  && < 0.3
                      , MonadRandom      >= 0.5  && < 0.6
                      , mtl              >= 2.2  && < 2.3
+                     , open-browser     >= 0.2  && < 0.3
                      , process          >= 1.6  && < 1.7
                      , split            >= 0.2  && < 0.3
                      , text             >= 1.2  && < 1.3

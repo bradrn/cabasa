@@ -1,0 +1,403 @@
+= Cabasa: User Manual
+:toc:
+:experimental:
+
+== Introduction
+
+Cabasa is an application for the simulation of arbitrary 2D cellular
+automata.
+
+[[sec:whatisca]]
+=== What is a Cellular Automaton?
+
+*Note:* You can skip this section if you already know about cellular
+automata.
+
+A _cellular automaton_ (abbreviated from now on as CA/CAs) is a type of
+mathematical simulation which operates on a set of _cells_. The cells
+are arranged in some sort of lattice (typically a 1D line or a 2D grid).
+Each cell has an associated _state_, which is one value drawn from a
+predefined set of values.
+
+On each step of the simulation, a fixed set of rules is applied. Each
+step is referred to as a _generation_. A pattern starts at generation 0,
+and each time the rules are applied the generation is increased by one.
+
+To illustrate this, consider the well-known CA known as _Conway’s Game
+of Life_ (or _Life_ for short). This CA takes place on a 2D grid. Each
+cell in this grid has a state drawn from a set of two states, usually
+called `Alive' and `Dead'. Each generation, the grid evolves according
+to the following rules:
+
+1. [[gold3]] If the current cell is dead but exactly
+three of the surrounding cells are alive, then the cell becomes alive.
+2. [[goldo]] Otherwise a dead cell stays dead.
+3. [[gola23]] If the current cell is alive and two or
+three of the surrounding cells are alive, then the cell stays alive.
+4. [[golao]] Otherwise a live cell turns into a dead
+cell.
+
+The effect of these rules can be seen in Figure [TODO],
+which shows the effect of one application of the above rules on a small
+starting pattern. Dead cells are drawn in white and live cells are drawn
+in blue.
+
+To illustrate the rules more clearly, in Figure [TODO]
+one live cell is highlighted in red. Its eight surrounding cells are
+highlighted in a lighter colour. If we consider the middle cell, we can
+see that it is next to only one live cell, so by the
+Rule 4 above it turns into a dead cell.
+Figure [TODO] is similar, except that a dead cell is
+highlighted instead of a live cell. This cell has three neighbouring
+live cells, so by Rule 1 it becomes alive in the
+next generation.
+
+[[sec:about]]
+=== About Cabasa
+
+Cabasa is an application for running *2D* cellular automata on (at the
+moment) a *finite* grid. It aims to support any CA, unlike existing
+applications which can only support certain classes of CAs. Do note that
+it does not aim to be particularly fast; if you want a very fast
+simulator, another application is probably better.
+
+[[chap:qstart]]
+== Quickstart
+
+To select a new rule, press the menu:Control[Set Rule] menu item. This opens a rule-selection
+dialog, where you can type a rule in or select a preexisting rule.
+Cabasa comes with a set of predefined rules; to select one of these, use
+the menu item menu:File[Open]. In this example, we’ll use the `life.alp` rule; it
+implements the _Game of Life_ rule described in
+Section <<sec:whatisca>>. Selecting this rule and pressing the btn:[OK]
+button will make its contents appear in the dialog. Press the btn:[Set Rule]
+button to change the current rule to the rule which you have selected.
+
+Now we can draw a pattern on the grid to use with this rule. Select
+state `1` from the dropdown box at the top of the window marked '`Current
+drawing state`' (see screenshot, Figure [TODO]). After this
+you should be able to draw patterns on the grid. If you press the key,
+you can click and drag to move around; pressing gets you back to drawing
+mode.
+
+To run the selected CA rule on your pattern, press the triangular btn:[Play]
+button on the left of the screen; pressing it again should pause the
+evolution. You should observe the pattern changing; this is due to the
+repeated application of the _Game of Life_ rules as described above.
+
+[[chap:gstart]]
+== Getting Started
+
+[[sec:ui]]
+=== User interface
+
+image::screenshot.png[Cabasa Main Window,float="right",align="center"]
+
+The main window, shown on Figure [TODO], is composed of
+several parts.
+
+The large grid in the middle shows the current state of the CA grid. The
+user can draw on the grid, move around to show the rest of the grid, and
+use the currently loaded CA to evolve the pattern shown on the grid.
+
+The information pane, just below the menu, shows various pieces of
+information about the current application state. Currently it only shows
+the current generation, but it is expected that it will contain more
+information in future versions of Cabasa.
+
+The drawing options pane, below the information pane, shows options
+related to drawing. Again, there is currently only one thing shown here,
+but future versions may add more. This pane will be disabled if drawing
+mode is not enabled.
+
+[[sec:drming]]
+=== Drawing and Moving
+
+The application starts in _drawing mode_. In this mode, clicking and
+dragging on the grid changes the state of each cell the cursor passes
+over.
+
+By default, the grid starts with all grid cells set to state 0 and the
+_drawing state_ also set to 0, so nothing happens when you try to draw
+on the grid. However, by changing the selected state (next to the text
+'`Current drawing state`'), other states can be chosen. For instance, if
+state 1 is selected, then clicking and dragging on the grid will change
+the cells under the cursor to state 1. Note that the states are numbered
+starting from 0, not 1, so to select e.g. the second state you have
+declared you need to select state 1, not state 2.
+
+Moving around the grid requires another mode, _move mode_. This mode can
+be selected from the menu:Draw[Mode] menu, or by pressing the kbd:[M] key. You can get back to
+drawing mode by using the menu:Draw menu, or by pressing the kbd:[D] key. In this mode,
+clicking and dragging will not draw on the grid, but rather will move or
+pan around the grid. Enabling this mode will also disable the '`drawing
+options`' pane.
+
+In any mode, you can also zoom in and out using the mouse wheel. Scroll
+up over a point to zoom in to that point, and scroll down to zoom out.
+
+If you zoom out far enough, you will notice that the grid abruptly comes
+to an end at a certain point. This is because the grid is finite.
+However, the grid `wraps around' at its edges; that is, if you move off
+one edge of the grid, you reappear at the opposite edge. For instance,
+the cell immediately above the topmost cell is considered to be the
+bottommost cell.
+
+[[sec:gridsize]]
+=== Changing the Grid Size
+
+By default, Cabasa uses a 100 × 100 grid (unless this
+has been changed in the . This may be changed using the menu:Edit[Change Grid Size] menu item, which
+launches a '`Change Size`' dialog. This dialog may be used by entering the
+new size as '`width × height`', then
+pressing btn:[OK] (or btn:[Cancel] if you actually don’t want to change the
+size).
+
+[[sec:selcopy]]
+=== Selection and copying
+
+In addition to the two modes described above, there is also a mode for
+selecting parts of the grid. This _selection mode_ may be accessed via
+the menu:Draw[Mode] menu, like the other two modes, or with the kbd[S] hotkey. In this mode,
+you may click and drag to select a portion of the grid (shown in green).
+Click and drag again in a different part of the grid to make a new
+selection. To clear the current selection, use the menu:Draw[Clear Selection] menu item, or its
+hotkey kbd:[Ctrl+K].
+
+Once you have selected part of a grid, you may _copy_ it into the
+_clipboard_, with the purpose of _pasting_ it back into another part of
+the grid. To copy the selection, use the menu:Edit[Copy] menu item. To paste your
+selection back, press menu:Edit[Paste]; a brown overlay will then be shown at the
+location where your selection will be pasted. Move your mouse, and then
+click on your document to paste your selection at the shown location.
+The usual hotkeys kbd:[Ctrl+C] and kbd:[Ctrl+V] respectively may also be used.
+
+[[sec:chngrule]]
+=== Changing the Rule
+
+The current CA can be changed using the menu:Control[Set Rule] menu item. This opens a window
+where you can type in a specification of a CA rule using the ALPACA
+specification language.
+
+To accept a specification, press the btn:[Set Rule] button at the bottom of
+the window. This will interpret the specification and load it into the
+main window. If the specification is invalid, it will show an error
+dialog instead.
+
+After the rule is set, you will be able to draw patterns in this rule on
+the grid in the main window. The set of states available for drawing
+through the '`current drawing state`' option will change to reflect the
+new rule. Since the set of allowed states could have changed, the grid
+will be cleared after each rule change.
+
+For more details on how to specify a CA, see Chapter <<sec:speccas>>,
+but if you want to play around with a specification now then you can
+copy the following Game of Life specification into the '`Set Rule`'
+window:
+
+....
+state Dead  " "
+  to Alive when 3 Alive and 5 Dead;
+state Alive "*"
+  to Dead when 4 Alive or 7 Dead.
+....
+
+[[sec:running]]
+=== Running CAs
+
+A set of _control buttons_ can be seen on the left of the window. These
+buttons are used to actually run the CA once a rule has been loaded and
+a pattern has been drawn.
+
+To run one generation of the CA, use the middle button. This operation
+is called _stepping_. You can repeatedly press this button to run the
+rules more than once.
+
+The topmost button will repeatedly step the CA when it is pressed once.
+This operation is generally referred to as _running_ the CA. After this
+button has been pressed, the icon will change to a pause icon. As this
+suggests, the button can be pressed again to pause the CA. Pressing it
+again will allow the CA to be run again.
+
+To adjust the rate of running, use the menu:Control[Faster] and menu:Control[Slower] menu items. Alternatively,
+you may press the kbd:[+] or kbd[-] keys respectively. The current speed is shown at
+the top of the window as the delay between steps; that is, a smaller
+number indicates a faster speed. Do note that Cabasa will not let you
+increase the speed below 100, since at these fast speeds Cabasa may
+crash when it attempts to calculate too quickly.
+
+To reset the CA after you have run or stepped it, use the bottom btn:[reset]
+button. This button will restore the original state of the CA after you
+have pressed the btn:[step] or btn:[run] buttons. If you haven’t run the CA,
+then it doesn’t do anything.
+
+To clear the pattern, use the menu:Draw[Clear] menu item. This resets the generation,
+clears the pattern and moves the grid so that the top-left corner is
+displayed (as in the start of the program).
+
+[[sec:opsav]]
+=== Opening and Saving
+
+Cabasa has the ability to open and save both rules and patterns. This
+can be done through the menu:File[Open] and menu:File[Save] menu items on the CA specification window
+and main window respectively. _Save_ (as opposed to _save as_)
+functionality has not yet been implemented, but will be implemented in a
+later version of Cabasa.
+
+In more detail:
+
+* To *save the current rule*, use the menu:control[Set rule] menu item on the main window to
+open the CA selection window. Then press the menu:File[Save] menu item on the CA
+selection window to show a file selection dialog where you can save the
+current rule.
+* To *open a previously saved rule*, use the menu:Control[Set rule] menu item on the main
+window to open the CA selection window. Then press the menu:File[Open] menu item on the
+CA selection window to show a file selection dialog where you can open a
+previously saved rule. After the rule has been opened, press the _Set
+Rule_ button at the bottom of the window to load it as the current rule.
+* To *save the current pattern*, use the menu:File[Save As] menu item on the main window to
+show a file selection dialog where you can save the current pattern.
+* To *open a previously saved pattern*, use the menu:File[Open] menu item on the main
+window to show a file selection dialog where you can open a previously
+saved pattern. If the pattern has been saved with a different rule to
+the rule currently active, a dialog box will be shown asking you if you
+want to switch rules.
+
+[[sec:findrs]]
+==== Finding rules
+
+If Cabasa needs to find a previously-saved rule (as may occur when
+e.g. opening a saved pattern), it uses the following steps to find it:
+
+. Inspect the folder specified by the `User-defined rules directory`
+setting (see Section <<sec:sets>>); use the rule if it is found in
+this folder.
+. Inspect the folder specified by the `Predefined rules directory`
+setting (see Section <<sec:sets>>); use the rule if it is found in
+this folder.
+. The rule could not be found in any known folder; ask the user if they
+want to find it manually.
+
+[[sec:sets]]
+=== Settings
+
+Cabasa can be customised through the use of various settings. These can
+be accessed through the menu:File[Settings] menu item. The following settings are currently
+supported:
+
+Predefined rules directory::
+  The directory in which sample rules are stored. (See
+  Section <<sec:findrs>> for details.)
+User-defined rules directory::
+  The directory in which user-defined rules are stored. (See
+  Section <<sec:findrs>> for details.)
+Default grid size::
+  A default grid size of _x_ × _y_ causes the default
+  grid to have a size of _x_ columns by _y_
+  rows. Note that changing this setting does _not_ have any effect on
+  the current grid; it only takes effect if a new grid is made.
+
+[[chap:speccas]]
+== Specifying CAs
+
+[[sec:usalp]]
+=== Using ALPACA
+
+ALPACA is a language created by Chris Pressey specifically for the
+specification of CAs. Cabasa uses the ALPACA language to specify CAs;
+currently Cabasa supports ALPACA version 1.1. Cabasa currently supports
+ALPACA version 1.1.
+
+The reference manual for ALPACA version 1.1 is a very good guide for
+learning about the various features of ALPACA. It is available at the
+following web address:
+https://github.com/catseye/ALPACA/blob/0b2d57b8739dc240969c62c8e1cd13c1863770e0/doc/ALPACA.markdown.
+Cabasa should support all the features outlined in that manual *except*
+for the initial configuration, which is currently ignored.
+
+Do note however that for technical reasons,
+  footnote:[In more detail: the '`examples`' are actually runnable tests containing an embedded description of the expected output as well.]
+  the '`examples`' in the ALPACA
+manual are actually written in a format called '`Falderal`' and not plain
+ALPACA; the ALPACA translation can be found by reading the parts of the
+example which are after the `|` characters. For instance, take this
+example from the manual:
+
+....
+| state Space " ";
+| state Up "U"
+|   to ^ when true;
+| state Down "D"
+|   to v when true
+| begin
+| DDD
+| UUU
+= -----
+= UUU
+= DDD
+= -----
+....
+
+For this example, the ALPACA which you would actually type is the
+following portion:
+
+....
+state Space " ";
+state Up "U"
+  to ^ when true;
+state Down "D"
+  to v when true
+begin
+DDD
+UUU
+....
+
+[[sec:stys]]
+=== Using ALPACA Stylesheets
+
+The _ALPACA Stylesheets_ format is a simple way to change the styling of
+a CA specified using ALPACA. The format is documented at
+https://github.com/catseye/ALPACA/blob/0b2d57b8739dc240969c62c8e1cd13c1863770e0/doc/ALPACA.markdown#alpaca-stylesheets-10.
+
+To open the ALPACA Stylesheets window, use the menu:Draw[Edit Stylesheets] menu item. This opens a
+window where you can edit the current stylesheet using the textbox in
+the middle of the screen, and then set it using the btn:[Set Stylesheet]
+button at the bottom. You can also use the menu:File[Open] and menu:File[Save As] menu items to open and
+save stylesheets respectively.
+
+[[chap:samps]]
+== Sample Patterns and Rules
+
+Cabasa comes with a set of predefined example patterns and rules. These
+are located in the default pattern and rule directories, so to access
+them you can simply use the relevant menu:File[Open] menu items.
+
+The predefined rules are:
+
+life.alp::
+  An ALPACA implementation of Conway’s Game of Life
+bbrain.alp::
+  An ALPACA implementation of _Brian’s Brain_, another well-known CA.
+  This CA tends to explode chaotically, creating fascinating dynamic
+  patterns.
+wireworld.alp::
+  An ALPACA implementation of _Wireworld_, a CA designed to simulate
+  computer circuits. For more information on WireWorld, see
+  https://www.quinapalus.com/wires0.html
+life.hs::
+  A Haskell implementation of Conway’s Game of Life. This in particular
+  is a good template to start coding a CA in Haskell.
+langton.hs::
+  A Haskell implementation of _Langton’s Ant_, a well-known CA
+  simulating a moving `ant'. For more information on Langton’s Ant, see
+  https://en.wikipedia.org/wiki/Langton%27s_ant
+
+The predefined patterns are:
+
+pi.mcl and r.mcl::
+  The _pi-heptomino_ and _r-pentomino_, two patterns which evolve in an
+  interesting way when run using Conway’s Game of Life.
+gates.mcl::
+  The and and or logic gates in Wireworld.
+langton.mcl::
+  An initial configuration for Langton’s Ant.

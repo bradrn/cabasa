@@ -50,6 +50,7 @@ import Lens.Micro.Mtl
 import System.FilePath ((</>), (-<.>))
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.Process (callCommand)
+import Web.Browser (openBrowser)
 
 import Control.Monad.App.Class
 import qualified Cabasa.ShowDialog as SD
@@ -161,17 +162,9 @@ instance Windows (App a) where
         widgetDestroy a
 
     showUserManual = liftIO $ do
-        location <- getDataFileName "doc/UserManual.pdf"
-#ifdef mingw32_HOST_OS
-        callCommand $ "start " ++ location
-#elif defined linux_HOST_OS
-        callCommand $ "xdg-open" ++ location
-#elif defined darwin_HOST_OS
-        callCommand $ "open"     ++ location
-#else
-        SD.showMessageDialog (Just window) MessageError ButtonsOk
-            "ERROR: Could not figure out how to open manual on your system.\nThis is a bug - please report it on the project website" pure
-#endif
+        location <- getDataFileName "doc/UserManual.html"
+        _ <- openBrowser location
+        return ()
 
     showErrorDialog msg = do
         w <- view T.window
