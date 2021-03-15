@@ -1,3 +1,5 @@
+**WARNING:** Cabasa is currently being heavily refactored and redesigned. Due to this not all of the features listed below are currently available. All features will be restored at some future date after the redesign is complete. (Unfortunately I cannot give a specific date; that will be dependent on how much time I get to work on Cabasa.)
+
 # Cabasa
 
 Cabasa is an application for the simulation of arbitrary 2D cellular automata (henceforth CA/CAs for clarity).
